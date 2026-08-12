@@ -455,7 +455,7 @@ def style_chg(df, cols):
             if v>0: return 'color:#4ade80;font-weight:bold'
             if v<0: return 'color:#f87171;font-weight:bold'
         return ''
-    return df.style.applymap(f, subset=cols)
+    return df.style.map(f, subset=cols)
 
 def style_vol(df, col='Vol'):
     def f(v):
@@ -463,7 +463,7 @@ def style_vol(df, col='Vol'):
             if v<0.3: return 'color:#4ade80;font-weight:bold'
             if v<0.7: return 'color:#fbbf24'
         return ''
-    return df.style.applymap(f, subset=[col])
+    return df.style.map(f, subset=[col])
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
@@ -590,10 +590,10 @@ def main():
                 'Signal':' '.join(r['ex'][:4]),'Candle':'+'.join(r['tags']) or '-'} for r in lst]
             df = pd.DataFrame(rows)
             st.dataframe(df.style
-                .applymap(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                .map(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
                           else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
                           subset=['Chg%','H/P%'])
-                .applymap(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
+                .map(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
                           else ('color:#fbbf24' if isinstance(v,float) and v<0.7 else ''), subset=['Vol'])
                 .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}','Vol':'{:.2f}','mc15%':'{:+.1f}'}),
                 use_container_width=True, height=520)
@@ -616,10 +616,10 @@ def main():
                     } for r in lst]
                 df=pd.DataFrame(rows)
                 st.dataframe(df.style
-                    .applymap(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                    .map(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
                               else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
                               subset=['Chg%'])
-                    .applymap(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
+                    .map(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
                               else ('color:#fbbf24' if isinstance(v,float) and v<0.7 else ''),subset=['Vol'])
                     .format({'Chg%':'{:+.2f}','Vol':'{:.2f}','Rng%':'{:.1f}','Dist%':'{:.1f}'}),
                     use_container_width=True, height=420)
@@ -634,7 +634,7 @@ def main():
                     'Missing':','.join(r['fails'][:2])} for r in lst2]
                 df=pd.DataFrame(rows)
                 st.dataframe(df.style
-                    .applymap(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
+                    .map(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
                               else ('color:#fbbf24' if isinstance(v,float) and v<0.7 else ''),subset=['Vol'])
                     .format({'Vol':'{:.2f}','Rng%':'{:.1f}','Dist%':'{:.1f}'}),
                     use_container_width=True, height=420)
@@ -651,9 +651,9 @@ def main():
                 'Lag (H)':r['lag'],'maxCA%':r['max_ca']} for r in lst]
             df=pd.DataFrame(rows)
             st.dataframe(df.style
-                .applymap(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v<=0
+                .map(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v<=0
                           else ('color:#f87171' if isinstance(v,float) and v>0 else ''),subset=['maxCA%'])
-                .applymap(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
+                .map(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
                           else ('color:#fbbf24' if isinstance(v,float) and v<0.7 else ''),subset=['Vol'])
                 .format({'Chg%':'{:+.2f}','Vol':'{:.2f}','Spk H/P%':'{:.1f}',
                          'Spk Vol':'{:.1f}','maxCA%':'{:+.1f}'}),
@@ -672,7 +672,7 @@ def main():
                 'Trigger':r['trigger']} for r in lst]
             df=pd.DataFrame(rows)
             st.dataframe(df.style
-                .applymap(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                .map(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
                           else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
                           subset=['Chg%'])
                 .format({'Chg%':'{:+.2f}','Vol':'{:.2f}'}),
@@ -689,10 +689,10 @@ def main():
                 'Hari':r['days'],'Sequence':r['seq']} for r in lst]
             df=pd.DataFrame(rows)
             st.dataframe(df.style
-                .applymap(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                .map(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
                           else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
                           subset=['Chg%','H/P%'])
-                .applymap(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
+                .map(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3
                           else ('color:#fbbf24' if isinstance(v,float) and v<0.7 else ''),subset=['Vol'])
                 .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}','Vol':'{:.2f}'}),
                 use_container_width=True, height=520)
@@ -711,7 +711,7 @@ def main():
                 } for r in lst]
             df=pd.DataFrame(rows)
             st.dataframe(df.style
-                .applymap(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                .map(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
                           else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
                           subset=['Chg%'])
                 .format({'Chg%':'{:+.2f}','Vol':'{:.2f}','mc15%':'{:+.1f}'}),
@@ -728,9 +728,9 @@ def main():
                 'Med Vol':r['med_vol'],'Merah/5':r['red5'],'Last Spk':r['spk']} for r in lst]
             df=pd.DataFrame(rows)
             st.dataframe(df.style
-                .applymap(lambda v:'color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else '',
+                .map(lambda v:'color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else '',
                           subset=['Drop 5H%','Chg%'])
-                .applymap(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3 else '',
+                .map(lambda v:'color:#4ade80' if isinstance(v,float) and v<0.3 else '',
                           subset=['Med Vol','Vol'])
                 .format({'Chg%':'{:+.2f}','Vol':'{:.2f}','Drop 5H%':'{:.1f}','Med Vol':'{:.2f}'}),
                 use_container_width=True, height=420)
