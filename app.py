@@ -670,6 +670,59 @@ def scan_ttx(all_ohlcv, avg_vols, target, hvp_thresh=8.0, gap_min=3, gap_max=15,
     results.sort(key=lambda x: (x['priority'], x['gap']))
     return results
 
+
+def load_from_folder(folder="data"):
+    """Load semua file XLS/XLSX dari folder data/ di repo."""
+    import glob
+    all_ohlcv = {}
+    files = sorted(glob.glob(f"{folder}/*.xls") + glob.glob(f"{folder}/*.xlsx"))
+    if not files:
+        return {}
+    for path in files:
+        fname = os.path.basename(path)
+        # Baca tanggal dari kolom Date di dalam file (lebih akurat)
+        try:
+            try: df = pd.read_excel(path, sheet_name='Trades')
+            except: df = pd.read_excel(path)
+        except Exception as e:
+            continue
+        for col in ['Open','High','Low','Close','Avg','Volume','Prev','Value','Last']:
+            if col in df.columns: df[col] = pd.to_numeric(df[col], errors='coerce')
+        if 'Close' not in df.columns or df['Close'].isna().all():
+            if 'Last' in df.columns: df['Close'] = df['Last']
+        elif 'Last' in df.columns:
+            df['Close'] = df['Close'].fillna(df['Last'])
+        # Ambil tanggal dari kolom Date jika ada
+        if 'Date' in df.columns:
+            dates = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
+            date = dates.dropna().iloc[0].strftime('%Y-%m-%d') if not dates.dropna().empty else None
+        else:
+            m = re.search(r'(\d{8})', fname)
+            date = f"{m.group(1)[:4]}-{m.group(1)[4:6]}-{m.group(1)[6:]}" if m else None
+        if not date: continue
+        df = df.dropna(subset=['Code','Close'])
+        df = df[df['Code'].apply(lambda x: str(x).isalpha() and len(str(x)) <= 6)]
+        for _, row in df.iterrows():
+            code = str(row['Code'])
+            all_ohlcv.setdefault(code, []).append({
+                'date': date,
+                'O': safe_float(row.get('Open')),
+                'H': safe_float(row.get('High')),
+                'L': safe_float(row.get('Low')),
+                'C': float(row['Close']),
+                'A': safe_float(row.get('Avg')),
+                'V': float(row.get('Volume') or 0),
+                'P': safe_float(row.get('Prev')),
+                'Val': float(row.get('Value') or 0),
+            })
+    for code in all_ohlcv:
+        seen = set(); deduped = []
+        for b in sorted(all_ohlcv[code], key=lambda x: x['date']):
+            if b['date'] not in seen:
+                seen.add(b['date']); deduped.append(b)
+        all_ohlcv[code] = deduped
+    return all_ohlcv
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
@@ -686,12 +739,17 @@ def main():
     # ── Sidebar ──────────────────────────────────────────────────────────────
     with st.sidebar:
         st.markdown("### ⚙️ Konfigurasi")
-        uploaded_files = st.file_uploader(
-            "📂 Upload File XLS dari RTI",
-            type=['xls','xlsx'],
-            accept_multiple_files=True,
-            help="Bisa upload banyak file sekaligus"
-        )
+        sumber = st.radio("📂 Sumber Data", ["📁 Folder data/", "⬆️ Upload Manual"], index=0)
+        if sumber == "⬆️ Upload Manual":
+            uploaded_files = st.file_uploader(
+                "Upload File XLS dari RTI",
+                type=['xls','xlsx'],
+                accept_multiple_files=True,
+                help="Bisa upload banyak file sekaligus"
+            )
+        else:
+            uploaded_files = None
+            st.caption("📁 Membaca dari folder `data/` di GitHub")
         st.divider()
         show_only_wl = st.toggle("★ Hanya WL", value=True)
         st.divider()
@@ -708,15 +766,16 @@ def main():
         st.caption(f"🕐 {now.strftime('%d %b %Y %H:%M')}")
 
     # ── Welcome ───────────────────────────────────────────────────────────────
-    if not uploaded_files:
+    folder_files = __import__('glob').glob('data/*.xls') + __import__('glob').glob('data/*.xlsx')
+    if not uploaded_files and not folder_files:
         c1,c2,c3 = st.columns([1,2,1])
         with c2:
             st.markdown("""
             <div style="text-align:center;padding:60px 20px;">
                 <div style="font-size:5rem;">📂</div>
-                <h2 style="color:#00d4aa;">Upload File XLS untuk Mulai</h2>
-                <p style="color:#aaa;">Taruh file <b>.xls</b> dari RTI Screener<br>
-                di panel kiri — bisa banyak file sekaligus</p>
+                <h2 style="color:#00d4aa;">Tidak ada data ditemukan</h2>
+                <p style="color:#aaa;">Upload file .xls di sidebar,<br>
+                atau taruh file XLS di folder <b>data/</b> di GitHub</p>
             </div>
             """, unsafe_allow_html=True)
             st.info("**Cara pakai:**\n1. Klik Browse files di sidebar\n2. Pilih file .xls dari RTI\n3. Hasil scan muncul otomatis")
@@ -724,7 +783,10 @@ def main():
 
     # ── Process ───────────────────────────────────────────────────────────────
     with st.spinner("🔄 Memproses & scan semua pola..."):
-        all_ohlcv = load_uploaded(uploaded_files)
+        if uploaded_files:
+            all_ohlcv = load_uploaded(uploaded_files)
+        else:
+            all_ohlcv = load_from_folder("data")
         if not all_ohlcv:
             st.error("Tidak ada data yang terbaca. Cek format file."); return
 
