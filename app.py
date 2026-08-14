@@ -36,18 +36,38 @@ st.markdown("""
 # WATCHLIST
 # ══════════════════════════════════════════════════════════════════════════════
 ALL_WL = set([
-    'CUAN','ADMG','CDIA','AYLS','GZCO','DOOH','DEWA','FAST','BNBR','KJEN','DATA',
-    'GRIA','FIRE','BAJA','BOAT','GTSI','BRMS','CENT','INDX','BUMI','CINT','KAQI','HRTA',
-    'KOCI','DPUM','BINO','GRPH','ELIT','ESIP','ASLC','APEX','JKON','HUMI','IMJS','AGRO',
-    'GEMA','KBLV','LABA','BELL','KOKA','JAWA','CSIS','KLAS','JAYA','JAST','HOPE','HDIT',
-    'GULA','FORE','DSFI','CHEM','CGAS','CARS','BWPT','BSBK','BRRC','BKSL','BAPA','BABY',
-    'ATLA','AHAP','AGRS','ADCP','ACRO','BIPI','KOBX','CAKK','DGIK','DOSS','BBRM','BGTG',
-    'FOLK','AISA','BVIC','HDFA','KIOS','BATR','IKAN','ERTX','DYAN','ISEA','HALO','GTBO',
-    'KRYA','DGNS','CRSN','BAIK','GPRA','GTRA','GSMF','KUAS','DIVA','INOV','DNAR','ENRG',
-    'CITY','DFAM','BEER','MSKY','SDMU','WAPO','PTMP','LUCK','OPMS','FWCT','STRK','MBTO',
-    'WOWS','MPIX','NETV','OKAS','KPIG','DKHH','SWID','DEFI','TRON','NTBK','NCKL','ENZO',
-    'NICL','WIFI','ARTO','MBMA','SSMS','EMTK','FILM','SULI','TINS','TOOL','PSDN','ESTA',
-    'RICY','SMLE','HERO','IKAN','BBHI',
+    'CUAN','DSSA','TINS','BUMI','BBRI','PTRO','AMMN','VKTR','BREN','BRPT',
+    'SLIS','BRMS','DEWA','MDKA','ENRG','IATA','DOOH','AADI','RAJA','EMAS',
+    'BAIK','INDY','KOTA','ADMR','BUVA','INET','TMPO','EXCL','BIPI','JARR',
+    'MBMA','TEBE','MEDC','NCKL','CDIA','PSAB','GULA','ESSA','FAST','WIFI',
+    'BRIS','RATU','PGEO','INKP','RMKE','EMTK','PANI','FUTR','MMIX','ARCI',
+    'IOTF','BABY','HRTA','ARKO','COCO','SSIA','NICL','ICON','MSIN','BEER',
+    'KPIG','UNTD','TOBA','ELSA','FILM','ASPR','SGER','SURI','LPKR','MAPI',
+    'AHAP','BBHI','DEWI','ASLI','OASA','FORE','DATA','WEGE','SMIL','MBSS',
+    'UVCR','SMLE','WIRG','KOKA','SOCI','GTSI','NETV','BBYB','ARTO','YELO',
+    'DKFT','ZATA','HALO','GJTL','LIVE','CSIS','HUMI','KBLV','VTNY','REAL',
+    'KRYA','CBDK','BNGA','ASHA','MEDS','KAQI','CITY','NTBK','SWID','BOBA',
+    'GZCO','BELL','EURO','PPRE','APLN','KJEN','NEST','NIKL','RGAS','SMDR',
+    'FOLK','MBTO','FORU','ESIP','TRUK','LEAD','SRSN','TRIN','RLCO','APEX',
+    'JKON','DNAR','DOSS','BAPA','DGIK','LAJU','ADHI','TOOL','TOSK','GPSO',
+    'PRIM','SQMI','DSFI','BRRC','TRJA','DEFI','KLAS','SULI','BSBK','ESTI',
+    'OKAS','TGUK','ISEA','KIOS','DPUM','HAJJ','WOWS','BOAT','RBMS','JATI',
+    'KRAS','SMGA','WTON','OILS','DAAZ','GOTO','PTMP','SMBR','RMKO','KUAS',
+    'CHEM','HDIT','NZIA','GSMF','KOCI','DYAN','BANK','SOLA','PSDN','MERI',
+    'ATAP','IRRA','TPMA','MSKY','WAPO','MAYA','HELI','TNCA','KKES','AISA',
+    'FIRE','AGRO','KICI','PAMG','JAST','LABA','WINE','BEST','PNBS','GOLF',
+    'HOKI','CRSN','BBRM','OPMS','DMMX','JAYA','BCIP','SAME','NOBU','ACRO',
+    'PPRI','MOLI','AXIO','KAEF','DKHH','BOLA','PART','MPIX','SDMU','AGRS',
+    'ADMG','UFOE','GRPH','CARS','MHKI','MCOR','CGAS','DIVA','ERTX','GRIA',
+    'MPPA','MSIE','FWCT','ASLC','ELIT','MDLA','INOV','ZYRX','MITI','DFAM',
+    'PJHB','FITT','OBMD','INPC','PTPS','RCCC','BBSS','MUTU','TMAS','BGTG',
+    'CENT','MDLN','RICY','LUCK','MPXL','SICO','BKSW','BACA','CAKK','AYLS',
+    'GTRA','ATLA','MPOW','NICE','ARII','INAI','KSIX','PURI','AKSI','RAAM',
+    'JAWA','FUJI','SEMA','RUIS','LPPS','NASI','BVIC','EAST','AMAN','CINT',
+    'PMJS','GEMA','DGNS','HDFA','ESTA','BATR','SMMT','SDPC','BABP','AMIN',
+    'MKTR','ITMA','TRIS','HAIS','PICO','BNII','AMAR','MAXI','VICO','ACST',
+    'BCAP','MTWI','BKDP','GTBO','ZBRA','JMAS','TRUE','TAYS','ADCP','BIMA',
+    'INAF','INDX','BAJA',
 ])
 
 VAL_MIN = 800_000_000
@@ -521,6 +541,135 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
     return results
 
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BOS — Break Out Soon
+# ══════════════════════════════════════════════════════════════════════════════
+def scan_bos(all_ohlcv, avg_vols, target, window=7):
+    results = []
+    for code, bars in all_ohlcv.items():
+        if not bars or bars[-1]['date'] != target: continue
+        if len(bars) < window + 2: continue
+        in_wl = code in ALL_WL
+        today = bars[-1]
+        win = bars[-(window+1):-1]
+        spike_days = []
+        for w_idx, wb in enumerate(win):
+            pos = len(bars) - (window+1) + w_idx
+            prev20 = bars[max(0, pos-20):pos]
+            vols = [b['V'] for b in prev20 if b.get('V', 0) > 0]
+            ma_vol = np.mean(vols) if vols else 0
+            if not wb.get('H') or not wb.get('P') or wb['P'] <= 0: continue
+            hvp = (wb['H'] - wb['P']) / wb['P'] * 100
+            vol_ok = wb['V'] > ma_vol if ma_vol > 0 else wb['V'] > 0
+            if hvp > 10 and vol_ok:
+                spike_days.append({'date': wb['date'][5:], 'hvp': round(hvp, 1)})
+        if len(spike_days) < 2: continue
+        cavg = False; vol_kering = False
+        if today.get('H') and today.get('C') and today.get('A'):
+            cavg = (today['C'] < today['H']) and (today['C'] < today['A'])
+        prev4_vols = [b['V'] for b in bars[-5:-1] if b.get('V', 0) > 0]
+        if prev4_vols:
+            vol_kering = today['V'] < np.mean(prev4_vols) * 0.7
+        if cavg and vol_kering:   entry = "CAVG+VolKering"; score = 100
+        elif cavg:                 entry = "CAVG";           score = 70
+        elif vol_kering:           entry = "VolKering";      score = 70
+        else:                      entry = "Tunggu";         score = 40
+        score += len(spike_days) * 10 + (30 if in_wl else 0)
+        chg0 = (today['C'] - today['P']) / today['P'] * 100 if today.get('P') and today['P'] > 0 else 0
+        hvp0 = (today['H'] - today['P']) / today['P'] * 100 if today.get('H') and today.get('P') and today['P'] > 0 else 0
+        results.append({'code': code, 'in_wl': in_wl, 'close': int(today['C']),
+            'chg': round(chg0,2), 'hvp': round(hvp0,2), 'spikes': spike_days,
+            'n_spike': len(spike_days), 'entry': entry, 'score': score})
+    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    return results
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BOH — Breakout High
+# ══════════════════════════════════════════════════════════════════════════════
+def scan_boh(all_ohlcv, avg_vols, target, min_trigger=20.0, min_gap=5.0, max_days=10):
+    results = []
+    for code, bars in all_ohlcv.items():
+        if not bars or bars[-1]['date'] != target: continue
+        if len(bars) < 3: continue
+        in_wl = code in ALL_WL
+        found = None
+        for i in range(1, len(bars)-1):
+            bt = bars[i]; bg = bars[i+1]
+            if not bt.get('C') or not bt.get('P') or bt['P'] <= 0: continue
+            if not bg.get('O') or bt['C'] <= 0: continue
+            chg_t = (bt['C'] - bt['P']) / bt['P'] * 100
+            if chg_t < min_trigger: continue
+            gap = (bg['O'] - bt['C']) / bt['C'] * 100
+            if gap < min_gap: continue
+            found = {'trigger_date': bt['date'][5:], 'trigger_chg': round(chg_t,1),
+                     'gap_date': bg['date'][5:], 'gap_pct': round(gap,1), 'gap_idx': i+1}
+        if not found: continue
+        days_after = len(bars) - 1 - found['gap_idx']
+        if days_after < 0 or days_after > max_days: continue
+        today = bars[-1]
+        prev4 = bars[max(0, len(bars)-5):-1]
+        prev4_vols = [b['V'] for b in prev4 if b.get('V', 0) > 0]
+        vol_kering = today['V'] < np.mean(prev4_vols) * 0.5 if prev4_vols else False
+        chg0 = (today['C'] - today['P']) / today['P'] * 100 if today.get('P') and today['P'] > 0 else 0
+        hvp0 = (today['H'] - today['P']) / today['P'] * 100 if today.get('H') and today.get('P') and today['P'] > 0 else 0
+        entry = "🎯 ENTRY" if vol_kering else f"⏳ H+{days_after} stlh gap"
+        score = (80 if vol_kering else 50) + (30 if in_wl else 0)
+        results.append({'code': code, 'in_wl': in_wl, 'close': int(today['C']),
+            'chg': round(chg0,2), 'hvp': round(hvp0,2),
+            'trigger_date': found['trigger_date'], 'trigger_chg': found['trigger_chg'],
+            'gap_date': found['gap_date'], 'gap_pct': found['gap_pct'],
+            'days_after': days_after, 'vol_kering': vol_kering,
+            'entry': entry, 'score': score})
+    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    return results
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TTx — Time Trading eXtended
+# ══════════════════════════════════════════════════════════════════════════════
+def scan_ttx(all_ohlcv, avg_vols, target, hvp_thresh=8.0, gap_min=3, gap_max=15, tol=2):
+    def is_spike(bar, prev4):
+        if not bar.get('H') or not bar.get('P') or bar['P'] <= 0: return False
+        if (bar['H'] - bar['P']) / bar['P'] * 100 <= hvp_thresh: return False
+        vols = [b['V'] for b in prev4 if b.get('V', 0) > 0]
+        return bar['V'] > np.mean(vols) if vols else False
+
+    results = []
+    for code, bars in all_ohlcv.items():
+        if code not in ALL_WL or len(bars) < 6: continue
+        spikes = []
+        for i in range(4, len(bars)):
+            if is_spike(bars[i], bars[i-4:i]):
+                hvp = (bars[i]['H'] - bars[i]['P']) / bars[i]['P'] * 100
+                spikes.append({'idx': i, 'date': bars[i]['date'][5:], 'hvp': round(hvp,1)})
+        if len(spikes) < 2: continue
+        last_idx = len(bars) - 1
+        for i in range(len(spikes)-1, 0, -1):
+            s2 = spikes[i]; s1 = spikes[i-1]
+            gap = s2['idx'] - s1['idx']
+            if not (gap_min <= gap <= gap_max): continue
+            pred_idx = s2['idx'] + gap
+            s3 = next((s for s in spikes[i+1:] if pred_idx-tol <= s['idx'] <= pred_idx+tol), None)
+            upcoming = (pred_idx - tol) > last_idx
+            reminder = upcoming and (pred_idx - tol - last_idx) <= 2
+            pred_date = bars[pred_idx]['date'][5:] if pred_idx < len(bars) else f"~{pred_idx-last_idx}H lagi"
+            if s3:          status = f"✅ Spike3 {s3['date']} +{s3['hvp']}%"; priority = 1
+            elif reminder:  status = f"🔔 REMINDER — {pred_date}";             priority = 0
+            elif upcoming:  status = f"⏳ Upcoming {pred_date}";               priority = 2
+            else:           status = f"❓ Lewat {pred_date}";                  priority = 3
+            today = bars[last_idx]
+            chg0 = (today['C'] - today['P']) / today['P'] * 100 if today.get('P') and today['P'] > 0 else 0
+            results.append({'code': code, 'in_wl': True, 'gap': gap, 'priority': priority,
+                'spk1_date': s1['date'], 'spk1_hvp': s1['hvp'],
+                'spk2_date': s2['date'], 'spk2_hvp': s2['hvp'],
+                's3': s3, 'pred_date': pred_date, 'status': status,
+                'chg': round(chg0,2), 'close': int(today['C'])})
+            break
+    results.sort(key=lambda x: (x['priority'], x['gap']))
+    return results
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
@@ -607,6 +756,9 @@ def main():
         sp_max  = st.session_state.get('sp_max',  5.0)
         sp_list = scan_stockpick(all_ohlcv, avg_vols, target,
                                  max_hvp=sp_hvp, min_chg=sp_min, max_chg=sp_max)
+        bos_list  = scan_bos(all_ohlcv, avg_vols, target)
+        boh_list  = scan_boh(all_ohlcv, avg_vols, target)
+        ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
 
     # ── Info bar ──────────────────────────────────────────────────────────────
     c1,c2,c3,c4 = st.columns(4)
@@ -616,7 +768,7 @@ def main():
     c4.metric("🏢 Saham",  f"{len(data_today)} saham")
 
     # ── Summary chips ─────────────────────────────────────────────────────────
-    cols = st.columns(9)
+    cols = st.columns(12)
     chips = [
         ("BOA ✅",    len([r for r in boa_full   if r['in_wl']]), "#60a5fa"),
         ("~BOA",     len([r for r in boa_near   if r['in_wl']]), "#93c5fd"),
@@ -627,6 +779,9 @@ def main():
         ("Alert",    len([r for r in alert_list  if r['in_wl']]), "#f87171"),
         ("Bersih",   len([r for r in clean      if r['in_wl']]), "#4ade80"),
         ("Stockpick",len([r for r in sp_list    if r['in_wl']]), "#a78bfa"),
+        ("BOS",      len([r for r in bos_list   if r['in_wl'] and r['entry']!='Tunggu']), "#f59e0b"),
+        ("BOH",      len([r for r in boh_list   if r['in_wl']]), "#06b6d4"),
+        ("TTx🔔",    len([r for r in ttx_list   if r['priority']==0]), "#e879f9"),
     ]
     for col,(label,val,color) in zip(cols,chips):
         col.markdown(f"""<div style="background:#1e1e2e;border:1px solid #333;border-radius:8px;
@@ -638,7 +793,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick","🚀 BOS","📈 BOH","⏰ TTx"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -867,8 +1022,113 @@ def main():
         else:
             st.info("Tidak ada saham yang memenuhi kriteria Stockpick saat ini.")
 
+
+    # Tab BOS
+    with tabs[8]:
+        lst = [r for r in bos_list if r['in_wl']] if show_only_wl else bos_list
+        entry_lst = [r for r in lst if r['entry'] != 'Tunggu']
+        wait_lst  = [r for r in lst if r['entry'] == 'Tunggu']
+        st.markdown(f"**BOS — Break Out Soon | Window 7H Trading | WL: {len([r for r in bos_list if r['in_wl']])} | Total: {len(bos_list)}**")
+        
+        st.markdown("##### 🎯 Entry Signal")
+        if entry_lst:
+            rows = [{'★': '★' if r['in_wl'] else '', 'Code': r['code'],
+                'Close': r['close'], 'Chg%': r['chg'], 'H/P%': r['hvp'],
+                'Spike dlm 7H': ' | '.join(f"{s['date']}+{s['hvp']}%" for s in r['spikes']),
+                'N Spike': r['n_spike'], 'Entry': r['entry']} for r in entry_lst]
+            df = pd.DataFrame(rows)
+            st.dataframe(df.style
+                .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                          else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
+                     subset=['Chg%','H/P%'])
+                .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}'}),
+                use_container_width=True, height=350)
+        else:
+            st.info("Belum ada sinyal entry BOS hari ini.")
+        
+        st.markdown("##### ⏳ Tunggu Entry")
+        if wait_lst:
+            rows = [{'★': '★' if r['in_wl'] else '', 'Code': r['code'],
+                'Close': r['close'], 'Chg%': r['chg'],
+                'Spike dlm 7H': ' | '.join(f"{s['date']}+{s['hvp']}%" for s in r['spikes']),
+                'N Spike': r['n_spike']} for r in wait_lst]
+            st.dataframe(pd.DataFrame(rows).style
+                .format({'Chg%':'{:+.2f}'}),
+                use_container_width=True, height=250)
+
+    # Tab BOH
+    with tabs[9]:
+        lst = [r for r in boh_list if r['in_wl']] if show_only_wl else boh_list
+        entry_lst = [r for r in lst if r['vol_kering']]
+        watch_lst = [r for r in lst if not r['vol_kering']]
+        st.markdown(f"**BOH — Breakout High (Trigger≥20% + Gap>5%) | WL: {len([r for r in boh_list if r['in_wl']])} | Total: {len(boh_list)}**")
+        
+        st.markdown("##### 🎯 Entry: Vol Kering")
+        if entry_lst:
+            rows = [{'★': '★' if r['in_wl'] else '', 'Code': r['code'],
+                'Close': r['close'], 'Chg%': r['chg'],
+                'Trigger': f"{r['trigger_date']} +{r['trigger_chg']}%",
+                'Gap': f"{r['gap_date']} +{r['gap_pct']}%",
+                'H+': r['days_after'], 'Entry': r['entry']} for r in entry_lst]
+            st.dataframe(pd.DataFrame(rows).style.format({'Chg%':'{:+.2f}'}),
+                use_container_width=True, height=300)
+        else:
+            st.info("Belum ada BOH dengan vol kering hari ini.")
+        
+        st.markdown("##### 👀 Pantau (setelah gap, tunggu vol kering)")
+        if watch_lst:
+            rows = [{'★': '★' if r['in_wl'] else '', 'Code': r['code'],
+                'Close': r['close'], 'Chg%': r['chg'],
+                'Trigger': f"{r['trigger_date']} +{r['trigger_chg']}%",
+                'Gap': f"{r['gap_date']} +{r['gap_pct']}%",
+                'H+ stlh gap': r['days_after']} for r in watch_lst]
+            st.dataframe(pd.DataFrame(rows).style.format({'Chg%':'{:+.2f}'}),
+                use_container_width=True, height=300)
+        else:
+            st.info("Tidak ada BOH dalam pantauan.")
+
+    # Tab TTx
+    with tabs[10]:
+        remind_lst   = [r for r in ttx_list if r['priority'] == 0]
+        confirm_lst  = [r for r in ttx_list if r['priority'] == 1]
+        upcoming_lst = [r for r in ttx_list if r['priority'] == 2]
+        miss_lst     = [r for r in ttx_list if r['priority'] == 3]
+        
+        st.markdown(f"**TTx — Time Trading (H/P>8% + Vol>avg4H | Siklus Berulang) | Total: {len(ttx_list)}**")
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric("🔔 Reminder", len(remind_lst))
+        c2.metric("✅ Confirmed", len(confirm_lst))
+        c3.metric("⏳ Upcoming", len(upcoming_lst))
+        c4.metric("❓ Miss", len(miss_lst))
+        
+        def ttx_rows(lst):
+            return [{'Code': r['code'], 'Gap': f"{r['gap']}H",
+                'Spike1': f"{r['spk1_date']} +{r['spk1_hvp']}%",
+                'Spike2': f"{r['spk2_date']} +{r['spk2_hvp']}%",
+                'Status': r['status'], 'Close': r['close'], 'Chg%': r['chg']} for r in lst]
+        
+        if remind_lst:
+            st.markdown("##### 🔔 REMINDER — Spike ke-3 segera!")
+            st.dataframe(pd.DataFrame(ttx_rows(remind_lst)).style
+                .format({'Chg%':'{:+.2f}'}), use_container_width=True, height=300)
+        
+        if confirm_lst:
+            st.markdown("##### ✅ Confirmed — Spike ke-3 sudah terjadi")
+            st.dataframe(pd.DataFrame(ttx_rows(confirm_lst)).style
+                .format({'Chg%':'{:+.2f}'}), use_container_width=True, height=350)
+        
+        if upcoming_lst:
+            with st.expander(f"⏳ Upcoming ({len(upcoming_lst)} saham)"):
+                st.dataframe(pd.DataFrame(ttx_rows(upcoming_lst)).style
+                    .format({'Chg%':'{:+.2f}'}), use_container_width=True)
+        
+        if miss_lst:
+            with st.expander(f"❓ Miss/Lewat ({len(miss_lst)} saham)"):
+                st.dataframe(pd.DataFrame(ttx_rows(miss_lst)).style
+                    .format({'Chg%':'{:+.2f}'}), use_container_width=True)
+
     st.divider()
-    st.caption(f"IDX Screener v1.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
+    st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
 
 
 if __name__ == "__main__":
