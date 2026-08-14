@@ -4,6 +4,7 @@ Streamlit Web App — Standalone (semua kode dalam 1 file)
 """
 
 import streamlit as st
+import glob
 import pandas as pd
 import numpy as np
 import os, sys, re, tempfile
@@ -826,7 +827,7 @@ def main():
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("📅 Data",   target)
     c2.metric("🎯 Target", next_date)
-    c3.metric("📊 File",   f"{len(uploaded_files)} file")
+    c3.metric("📊 File",   f"{len(uploaded_files) if uploaded_files else len(glob.glob('data/*.xls')+glob.glob('data/*.xlsx'))} file")
     c4.metric("🏢 Saham",  f"{len(data_today)} saham")
 
     # ── Summary chips ─────────────────────────────────────────────────────────
