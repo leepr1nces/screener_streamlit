@@ -466,6 +466,62 @@ def style_vol(df, col='Vol'):
     return df.style.map(f, subset=[col])
 
 # ══════════════════════════════════════════════════════════════════════════════
+# STOCKPICK BUY CLOSE
+# ══════════════════════════════════════════════════════════════════════════════
+def scan_stockpick(all_ohlcv, avg_vols, target,
+                   max_hvp=7.0, min_chg=0.0, max_chg=5.0,
+                   lookback=7, max_c7=7.0):
+    results = []
+    for code, bars in all_ohlcv.items():
+        if not bars or bars[-1]['date'] != target or len(bars) < 3:
+            continue
+        b0 = bars[-1]
+        b1 = bars[-2] if len(bars) >= 2 else None
+        in_wl = code in ALL_WL
+        if not b0.get('P') or b0['P'] <= 0:
+            continue
+        hvp0 = pct(b0['H'], b0['P']) if b0.get('H') else 0
+        chg0 = pct(b0['C'], b0['P'])
+        v0   = b0.get('V', 0)
+        v1   = b1.get('V', 0) if b1 else 0
+        avg_vol = avg_vols.get(code, 1.0)
+        vr0  = v0 / avg_vol if avg_vol > 0 else 0
+        # Kriteria 1: H/P <= max_hvp
+        if hvp0 > max_hvp:
+            continue
+        # Kriteria 2: Close/Prev antara min_chg dan max_chg
+        if chg0 < min_chg or chg0 > max_chg:
+            continue
+        # Kriteria 3: Volume hari ini > kemarin
+        if v1 <= 0 or v0 <= v1:
+            continue
+        # Kriteria 4: 7H ke belakang tidak ada close >= max_c7
+        period7 = bars[-lookback-1:-1]
+        spike7  = any(b.get('P') and b['P'] > 0 and pct(b['C'], b['P']) >= max_c7
+                      for b in period7)
+        if spike7:
+            continue
+        sc = 50.0 + vr0*10 + chg0*5 + (max_hvp - hvp0)
+        if in_wl: sc += 30
+        vp = v0/v1 if v1 > 0 else 0
+        max_c7h = max((pct(b['C'],b['P']) for b in period7 if b.get('P') and b['P']>0), default=0.0)
+        green = b0['C'] > (b0.get('O') or b0['C'])
+        ol  = bool(b0.get('O') and b0.get('L') and b0['O']>0 and abs(b0['O']-b0['L'])/b0['O']*100 < 0.5)
+        doji= bool(b0.get('O') and b0['O']>0 and abs(b0['C']-b0['O'])/b0['O']*100 < 0.8)
+        candle = ('OL+Doji' if ol and doji else 'OL' if ol else
+                  'Doji'    if doji else 'Hijau' if green else 'Merah')
+        results.append({
+            'code': code, 'in_wl': in_wl, 'close': int(b0['C']),
+            'chg': round(chg0,2), 'hvp': round(hvp0,2),
+            'vol': round(vr0,2), 'vol_vs_prev': round(vp,2),
+            'score': round(sc,1), 'max_chg7': round(max_c7h,2),
+            'candle': candle,
+        })
+    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    return results
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
@@ -545,6 +601,12 @@ def main():
         alert_list= scan_alert(all_ohlcv, avg_vols, target)
         clean     = scan_bersih(all_ohlcv, avg_vols, target,
                                 p1_list, p3_list, boa_full, boa_near, sv_list)
+        # Stockpick — ambil parameter dari session state
+        sp_hvp  = st.session_state.get('sp_hvp',  7.0)
+        sp_min  = st.session_state.get('sp_min',  0.0)
+        sp_max  = st.session_state.get('sp_max',  5.0)
+        sp_list = scan_stockpick(all_ohlcv, avg_vols, target,
+                                 max_hvp=sp_hvp, min_chg=sp_min, max_chg=sp_max)
 
     # ── Info bar ──────────────────────────────────────────────────────────────
     c1,c2,c3,c4 = st.columns(4)
@@ -554,16 +616,17 @@ def main():
     c4.metric("🏢 Saham",  f"{len(data_today)} saham")
 
     # ── Summary chips ─────────────────────────────────────────────────────────
-    cols = st.columns(8)
+    cols = st.columns(9)
     chips = [
-        ("BOA ✅",  len([r for r in boa_full  if r['in_wl']]), "#60a5fa"),
-        ("~BOA",   len([r for r in boa_near  if r['in_wl']]), "#93c5fd"),
-        ("P1",     len([r for r in p1_list   if r['in_wl']]), "#f472b6"),
-        ("P3",     len([r for r in p3_list   if r['in_wl']]), "#fbbf24"),
-        ("OLseq",  len([r for r in ol_list   if r['in_wl']]), "#fb923c"),
-        ("SV",     len([r for r in sv_list   if r['in_wl']]), "#2dd4bf"),
-        ("Alert",  len([r for r in alert_list if r['in_wl']]), "#f87171"),
-        ("Bersih", len([r for r in clean     if r['in_wl']]), "#4ade80"),
+        ("BOA ✅",    len([r for r in boa_full   if r['in_wl']]), "#60a5fa"),
+        ("~BOA",     len([r for r in boa_near   if r['in_wl']]), "#93c5fd"),
+        ("P1",       len([r for r in p1_list    if r['in_wl']]), "#f472b6"),
+        ("P3",       len([r for r in p3_list    if r['in_wl']]), "#fbbf24"),
+        ("OLseq",    len([r for r in ol_list    if r['in_wl']]), "#fb923c"),
+        ("SV",       len([r for r in sv_list    if r['in_wl']]), "#2dd4bf"),
+        ("Alert",    len([r for r in alert_list  if r['in_wl']]), "#f87171"),
+        ("Bersih",   len([r for r in clean      if r['in_wl']]), "#4ade80"),
+        ("Stockpick",len([r for r in sp_list    if r['in_wl']]), "#a78bfa"),
     ]
     for col,(label,val,color) in zip(cols,chips):
         col.markdown(f"""<div style="background:#1e1e2e;border:1px solid #333;border-radius:8px;
@@ -575,7 +638,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -736,6 +799,73 @@ def main():
                 use_container_width=True, height=420)
         else:
             st.success("✅ Tidak ada Alert WL saat ini — pasar sehat!")
+
+    # Tab Stockpick
+    with tabs[7]:
+        st.markdown("### 🛒 Stockpick Buy Close")
+
+        # Parameter
+        with st.expander("⚙️ Sesuaikan Parameter", expanded=False):
+            c1, c2, c3 = st.columns(3)
+            new_hvp = c1.slider("Max H/P%",     1.0, 15.0, 7.0, 0.5)
+            new_min = c2.slider("Min Close/P%", -5.0,  5.0, 0.0, 0.5)
+            new_max = c3.slider("Max Close/P%",  0.0, 15.0, 5.0, 0.5)
+            if st.button("🔄 Rescan"):
+                st.session_state['sp_hvp'] = new_hvp
+                st.session_state['sp_min'] = new_min
+                st.session_state['sp_max'] = new_max
+                sp_list = scan_stockpick(all_ohlcv, avg_vols, target,
+                                         max_hvp=new_hvp, min_chg=new_min, max_chg=new_max)
+                sp_wl_new = [r for r in sp_list if r['in_wl']]
+                st.success(f"Rescan selesai: {len(sp_wl_new)} WL")
+
+        sp_wl  = [r for r in sp_list if r['in_wl']]
+        sp_nwl = [r for r in sp_list if not r['in_wl']]
+        st.markdown(
+            f"**Kriteria: H/P≤{sp_hvp:.0f}% | C/P={sp_min:.0f}~{sp_max:.0f}% | "
+            f"Vol>PrevVol | 7H bersih** — "
+            f"WL: **{len(sp_wl)}** | Non-WL: {len(sp_nwl)}"
+        )
+
+        lst = sp_wl if show_only_wl else sp_list
+        if lst:
+            rows = []
+            for r in lst:
+                rows.append({
+                    '★':        '★' if r['in_wl'] else '',
+                    'Code':     r['code'],
+                    'Close':    r['close'],
+                    'Chg%':     r['chg'],
+                    'H/P%':     r['hvp'],
+                    'Vol/avg':  r['vol'],
+                    'Vol/Prev': r['vol_vs_prev'],
+                    'mc7%':     r['max_chg7'],
+                    'Candle':   r['candle'],
+                })
+            df = pd.DataFrame(rows)
+            st.dataframe(
+                df.style
+                  .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                                 else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
+                       subset=['Chg%','H/P%'])
+                  .map(lambda v: 'color:#4ade80' if isinstance(v,float) and v<0.3
+                                 else ('color:#fbbf24' if isinstance(v,float) and v<0.7 else ''),
+                       subset=['Vol/avg'])
+                  .map(lambda v: 'color:#a78bfa;font-weight:bold' if isinstance(v,float) and v>1.5
+                                 else ('color:#fbbf24' if isinstance(v,float) and v>1.0 else ''),
+                       subset=['Vol/Prev'])
+                  .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}',
+                           'Vol/avg':'{:.2f}','Vol/Prev':'{:.2f}x','mc7%':'{:+.2f}'}),
+                use_container_width=True, height=520,
+            )
+            st.info(
+                "**Cara baca:** Chg% = kenaikan close dari kemarin | "
+                "H/P% = high dari kemarin (≤7% = tidak overbought) | "
+                "Vol/Prev = volume hari ini vs kemarin (>1.0 = naik) | "
+                "mc7% = max close 7H terakhir (harus <7%)"
+            )
+        else:
+            st.info("Tidak ada saham yang memenuhi kriteria Stockpick saat ini.")
 
     st.divider()
     st.caption(f"IDX Screener v1.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
