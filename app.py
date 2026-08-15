@@ -1376,62 +1376,63 @@ def main():
             return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
 
         if lst:
-            rows = []
+            # Render tabel SP sebagai HTML — supaya sparkline bisa inline
+            def vol_color(v, thresh_low=0.3, thresh_mid=0.7):
+                if v < thresh_low: return '#4ade80'
+                if v < thresh_mid: return '#fbbf24'
+                return ''
+            def volprev_color(v):
+                if v > 1.5: return '#a78bfa'
+                if v > 1.0: return '#fbbf24'
+                return ''
+
+            sp_rows_html = []
             for r in lst:
-                rows.append({
-                    '★':        '★' if r['in_wl'] else '',
-                    'Code':     r['code'],
-                    'Close':    r['close'],
-                    'Chg%':     r['chg'],
-                    'H/P%':     r['hvp'],
-                    'Vol/avg':  r['vol'],
-                    'Vol/Prev': r['vol_vs_prev'],
-                    'mc7%':     r['max_chg7'],
-                    'Candle':   r['candle'],
-                })
-            df = pd.DataFrame(rows)
-            st.dataframe(
-                df.style
-                  .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
-                                 else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
-                       subset=['Chg%','H/P%'])
-                  .map(lambda v: 'color:#4ade80' if isinstance(v,float) and v<0.3
-                                 else ('color:#fbbf24' if isinstance(v,float) and v<0.7 else ''),
-                       subset=['Vol/avg'])
-                  .map(lambda v: 'color:#a78bfa;font-weight:bold' if isinstance(v,float) and v>1.5
-                                 else ('color:#fbbf24' if isinstance(v,float) and v>1.0 else ''),
-                       subset=['Vol/Prev'])
-                  .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}',
-                           'Vol/avg':'{:.2f}','Vol/Prev':'{:.2f}x','mc7%':'{:+.2f}'}),
-                use_container_width=True, height=520,
-            )
-            # Sparkline mini terpisah
-            if lst:
-                sp_html_rows = []
-                for r in lst:
-                    spark_sp = make_sparkline(r['code'])
-                    chg = r.get('chg', 0)
-                    cc = '#4ade80' if chg > 0 else ('#f87171' if chg < 0 else '#888')
-                    sc = '+' if chg > 0 else ''
-                    sp_html_rows.append(
-                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
-                        '<td style="padding:6px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
-                        '<td style="padding:6px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
-                        '<td style="padding:6px 10px;text-align:right;color:' + cc + ';font-weight:500;font-size:13px">' + sc + str(round(chg,2)) + '%</td>'
-                        '<td style="padding:6px 10px">' + spark_sp + '</td>'
-                        '</tr>'
-                    )
-                spark_tbl = (
-                    '<table style="width:100%;border-collapse:collapse">'
-                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.2)">'
-                    '<th style="padding:6px 10px;text-align:left;color:#888;font-weight:400;font-size:12px">Code</th>'
-                    '<th style="padding:6px 10px;text-align:right;color:#888;font-weight:400;font-size:12px">Close</th>'
-                    '<th style="padding:6px 10px;text-align:right;color:#888;font-weight:400;font-size:12px">Chg%</th>'
-                    '<th style="padding:6px 10px;text-align:left;color:#888;font-weight:400;font-size:12px">Trend 14H</th>'
-                    '</tr></thead><tbody>' + ''.join(sp_html_rows) + '</tbody></table>'
+                chg = r.get('chg',0); hvp = r.get('hvp',0)
+                vol = r.get('vol',0); vp = r.get('vol_vs_prev',0)
+                mc = r.get('max_chg7',0); candle = r.get('candle','')
+                spark = make_sparkline(r['code'])
+
+                cc  = '#4ade80' if chg>0 else ('#f87171' if chg<0 else '#888')
+                hc  = '#4ade80' if hvp>0 else ('#f87171' if hvp<0 else '#888')
+                vc  = vol_color(vol)
+                vpc = volprev_color(vp)
+                sc  = '+' if chg>0 else ''; sh = '+' if hvp>0 else ''; sm = '+' if mc>0 else ''
+                wl  = '★ ' if r.get('in_wl') else ''
+
+                candle_color = '#4ade80' if 'Hijau' in candle else ('#f87171' if 'Merah' in candle else '#fbbf24')
+
+                sp_rows_html.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                    '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + wl + '</td>'
+                    '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(round(chg,2)) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + hc + ';font-weight:500">' + sh + str(round(hvp,2)) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + spark + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + vc + '">' + str(round(vol,2)) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + vpc + ';font-weight:500">' + str(round(vp,2)) + 'x</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + sm + str(round(mc,2)) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:center;color:' + candle_color + ';font-size:12px">' + candle + '</td>'
+                    '</tr>'
                 )
-                with st.expander("📈 Sparkline Trend 14H", expanded=True):
-                    st.html(spark_tbl)
+
+            sp_tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                '<th style="padding:7px 10px;color:#666;font-weight:400;font-size:11px;width:24px">★</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">H/P%</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Trend 14H</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol/avg</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol/Prev</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">mc8%</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Candle</th>'
+                '</tr></thead><tbody>' + ''.join(sp_rows_html) + '</tbody></table>'
+            )
+            st.html(sp_tbl_html)
 
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
