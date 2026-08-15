@@ -529,6 +529,35 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
         ol_prev    = b1.get('L') and b1['L'] > 0 and abs(b1['O'] - b1['L']) / b1['O'] * 100 < 0.5
         if not (doji_prev or merah_prev or ol_prev):
             continue
+        # Kriteria 5: Divergen volume — ada spike vol besar dalam 15H,
+        # setelah spike vol mengering, harga tidak turun dari level spike
+        period15 = bars[-17:-1]  # 15H ke belakang sebelum hari ini
+        vol_spike_idx = None
+        vol_spike_close = None
+        for i, b in enumerate(period15):
+            if not b.get('H') or not b.get('P') or b['P'] <= 0: continue
+            if i < 4: continue  # butuh minimal 4 bar sebelumnya untuk avg
+            prev4_vols = [x.get('V',0) for x in period15[max(0,i-4):i]]
+            avg4 = sum(prev4_vols)/len(prev4_vols) if prev4_vols else 0
+            if avg4 > 0 and b.get('V',0) > avg4 * 1.5:  # spike vol >1.5x avg
+                vol_spike_idx = i
+                vol_spike_close = b.get('C', 0)
+        if vol_spike_idx is None:
+            continue
+        # Setelah spike: volume trend menurun
+        after_spike = period15[vol_spike_idx+1:]
+        if len(after_spike) < 2:
+            continue
+        after_vols = [b.get('V',0) for b in after_spike]
+        # Volume hari-hari setelah spike rata-rata lebih kecil dari spike
+        spike_vol = period15[vol_spike_idx].get('V',0)
+        avg_after = sum(after_vols)/len(after_vols) if after_vols else 0
+        vol_divergen = avg_after < spike_vol * 0.7  # vol after < 70% dari spike
+        if not vol_divergen:
+            continue
+        # Harga tidak turun dari level spike (close sekarang >= close saat spike)
+        if vol_spike_close and b0.get('C') and b0['C'] < vol_spike_close * 0.95:
+            continue
         sc = 50.0 + vr0*10 + chg0*5 + hvp0
         if in_wl: sc += 30
         vp = v0/v1 if v1 > 0 else 0
