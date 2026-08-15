@@ -826,14 +826,18 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
 # CANDLESTICK CHART
 # ══════════════════════════════════════════════════════════════════════════════
 def render_candlestick(code, all_ohlcv, n_days=30):
-    """Render candlestick chart + volume bar untuk saham tertentu."""
+    """Render candlestick chart + volume bar untuk saham tertentu.
+    Menggunakan index kategorikal agar tidak ada gap hari libur.
+    """
     bars = all_ohlcv.get(code, [])
     if not bars:
         st.warning(f"Data tidak ditemukan untuk {code}")
         return
 
     bars = bars[-n_days:]
-    dates  = [b['date'] for b in bars]
+    # Gunakan index 0,1,2,... sebagai x agar tidak ada gap hari libur
+    dates  = [b['date'][5:] for b in bars]  # format MM-DD sebagai label
+    idx    = list(range(len(bars)))
     opens  = [b.get('O') or b.get('C') for b in bars]
     highs  = [b.get('H') for b in bars]
     lows   = [b.get('L') or b.get('C') for b in bars]
@@ -843,9 +847,9 @@ def render_candlestick(code, all_ohlcv, n_days=30):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.7, 0.3], vertical_spacing=0.03)
 
-    # Candlestick
+    # Candlestick — pakai index numerik, label tanggal di ticktext
     fig.add_trace(go.Candlestick(
-        x=dates, open=opens, high=highs, low=lows, close=closes,
+        x=idx, open=opens, high=highs, low=lows, close=closes,
         name=code,
         increasing_line_color='#4ade80',
         decreasing_line_color='#f87171',
@@ -864,21 +868,25 @@ def render_candlestick(code, all_ohlcv, n_days=30):
     ma7  = ma(closes, 7)
     ma14 = ma(closes, 14)
 
-    fig.add_trace(go.Scatter(x=dates, y=ma7,  mode='lines',
+    fig.add_trace(go.Scatter(x=idx, y=ma7,  mode='lines',
         line=dict(color='#60a5fa', width=1), name='MA7'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=dates, y=ma14, mode='lines',
+    fig.add_trace(go.Scatter(x=idx, y=ma14, mode='lines',
         line=dict(color='#f59e0b', width=1), name='MA14'), row=1, col=1)
 
     # Volume bar
     vol_colors = ['#4ade80' if c and o and c >= o else '#f87171'
                   for c, o in zip(closes, opens)]
     fig.add_trace(go.Bar(
-        x=dates, y=vols, name='Volume',
+        x=idx, y=vols, name='Volume',
         marker_color=vol_colors, opacity=0.7,
     ), row=2, col=1)
 
+    # Tick setiap 5 bar
+    tick_vals = idx[::5]
+    tick_text = [dates[i] for i in tick_vals]
+
     fig.update_layout(
-        title=dict(text=f'📊 {code} — {n_days} hari terakhir', font=dict(color='#e2e8f0')),
+        title=dict(text=f'📊 {code} — {n_days} hari trading', font=dict(color='#e2e8f0')),
         plot_bgcolor='#1e293b',
         paper_bgcolor='#0f172a',
         font=dict(color='#94a3b8'),
@@ -888,7 +896,10 @@ def render_candlestick(code, all_ohlcv, n_days=30):
         legend=dict(orientation='h', y=1.02, x=0),
         showlegend=True,
     )
-    fig.update_xaxes(gridcolor='#334155', showgrid=True)
+    fig.update_xaxes(
+        gridcolor='#334155', showgrid=True,
+        tickmode='array', tickvals=tick_vals, ticktext=tick_text,
+    )
     fig.update_yaxes(gridcolor='#334155', showgrid=True)
 
     st.plotly_chart(fig, use_container_width=True)
