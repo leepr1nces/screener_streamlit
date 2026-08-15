@@ -1405,6 +1405,34 @@ def main():
                            'Vol/avg':'{:.2f}','Vol/Prev':'{:.2f}x','mc7%':'{:+.2f}'}),
                 use_container_width=True, height=520,
             )
+            # Sparkline mini terpisah
+            if lst:
+                sp_html_rows = []
+                for r in lst:
+                    spark_sp = make_sparkline(r['code'])
+                    chg = r.get('chg', 0)
+                    cc = '#4ade80' if chg > 0 else ('#f87171' if chg < 0 else '#888')
+                    sc = '+' if chg > 0 else ''
+                    sp_html_rows.append(
+                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                        '<td style="padding:6px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                        '<td style="padding:6px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                        '<td style="padding:6px 10px;text-align:right;color:' + cc + ';font-weight:500;font-size:13px">' + sc + str(round(chg,2)) + '%</td>'
+                        '<td style="padding:6px 10px">' + spark_sp + '</td>'
+                        '</tr>'
+                    )
+                spark_tbl = (
+                    '<table style="width:100%;border-collapse:collapse">'
+                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.2)">'
+                    '<th style="padding:6px 10px;text-align:left;color:#888;font-weight:400;font-size:12px">Code</th>'
+                    '<th style="padding:6px 10px;text-align:right;color:#888;font-weight:400;font-size:12px">Close</th>'
+                    '<th style="padding:6px 10px;text-align:right;color:#888;font-weight:400;font-size:12px">Chg%</th>'
+                    '<th style="padding:6px 10px;text-align:left;color:#888;font-weight:400;font-size:12px">Trend 14H</th>'
+                    '</tr></thead><tbody>' + ''.join(sp_html_rows) + '</tbody></table>'
+                )
+                with st.expander("📈 Sparkline Trend 14H", expanded=True):
+                    st.html(spark_tbl)
+
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
