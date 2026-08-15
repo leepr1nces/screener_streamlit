@@ -260,7 +260,7 @@ def scan_p1(all_ohlcv, avg_vols, target):
                 'spike_date':bs['date'][5:],'spike_hvp':round(hvp_s,2),'spike_vol':round(vr_s,2),
                 'lag':lag,'max_ca':round(max_ca,2)})
             break
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -313,7 +313,7 @@ def scan_p3(all_ohlcv, avg_vols, target):
                     'spk1_date':b1['date'][5:],'spk1_hvp':round(hvp1b,2),'spk1_vol':round(vr1b,2),
                     'spk2_date':b0['date'][5:],'spk2_hvp':round(hvp0,2),'spk2_vol':round(vr0,2),
                     'trigger':'Spike2 Aktif 👀'})
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -341,7 +341,7 @@ def scan_ol_seq(all_ohlcv, avg_vols, target):
         results.append({'code':code,'in_wl':in_wl,'close':int(b0['C']),'chg':round(chg0,2),
             'hvp':round(hvp0,2),'vol':round(vr0,2),'seq':seq,
             'days':'3H' if has_3d else '2H','score':round(sc,1)})
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -372,7 +372,7 @@ def scan_sv(all_ohlcv, avg_vols, target):
             'vol':round(vr0,2),'score':round(sc,1),'n':len(spikes_val),
             'best':best,'spikes':spikes_val[:3],'max_chg15':round(max_chg15,2),
             'ol':is_ol(b0),'doji':is_doji(b0),'cavg':bool(b0.get('A') and b0['C']<b0['A'])})
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -400,7 +400,7 @@ def scan_alert(all_ohlcv, avg_vols, target):
         results.append({'code':code,'in_wl':in_wl,'close':int(b0['C']),'chg':round(chg0,2),
             'vol':round(vr0,2),'score':round(sc,1),'acc_drop':round(acc_drop,2),
             'med_vol':round(med_vol,2),'red5':red5,'spk':spk_str})
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -464,7 +464,7 @@ def scan_bersih(all_ohlcv, avg_vols, target, p1_list, p3_list, boa_full, boa_nea
             'vol':round(vr0,2),'max_chg15':round(max_chg15,2),
             'n_spike':n_spike,'max_spike':round(max_spike,2),
             'n_ol':n_ol,'n_dj':n_dj,'n_ca':n_ca,'tags':tags,'ex':ex})
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -538,7 +538,7 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
             'score': round(sc,1), 'max_chg7': round(max_c7h,2),
             'candle': candle,
         })
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -582,7 +582,7 @@ def scan_bos(all_ohlcv, avg_vols, target, window=7):
         results.append({'code': code, 'in_wl': in_wl, 'close': int(today['C']),
             'chg': round(chg0,2), 'hvp': round(hvp0,2), 'spikes': spike_days,
             'n_spike': len(spike_days), 'entry': entry, 'score': score})
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -623,7 +623,7 @@ def scan_boh(all_ohlcv, avg_vols, target, min_trigger=20.0, min_gap=5.0, max_day
             'gap_date': found['gap_date'], 'gap_pct': found['gap_pct'],
             'days_after': days_after, 'vol_kering': vol_kering,
             'entry': entry, 'score': score})
-    results.sort(key=lambda x: (-int(x['in_wl']), -x['score']))
+    results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
 
@@ -724,6 +724,53 @@ def load_from_folder(folder="data"):
         all_ohlcv[code] = deduped
     return all_ohlcv
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AUTO STOCKPICK RANGKUMAN — Kompilasi terbaik dari semua pola
+# ══════════════════════════════════════════════════════════════════════════════
+def auto_stockpick(boa_list, p1_list, p3_list, ol_list, sv_list, alert_list,
+                   sp_list, bos_list, boh_list, ttx_list):
+    """Kompilasi saham terbaik dari semua pola, sorted Chg% desc lalu H/P% desc."""
+    picks = {}
+
+    def add(lst, pola, min_chg=-99):
+        for r in lst:
+            if not r.get('in_wl'): continue
+            code = r['code']
+            chg = r.get('chg', 0)
+            hvp = r.get('hvp', 0)
+            if chg < min_chg: continue
+            if code not in picks:
+                picks[code] = {'code': code, 'chg': chg, 'hvp': hvp,
+                               'close': r.get('close', 0), 'pola': []}
+            if pola not in picks[code]['pola']:
+                picks[code]['pola'].append(pola)
+            # Update chg/hvp ke yang terbaru
+            picks[code]['chg'] = chg
+            picks[code]['hvp'] = hvp
+
+    # BOA full (score tinggi)
+    add([r for r in boa_list if r.get('boa_full')], 'BOA✅')
+    # P1 entry
+    add([r for r in p1_list if r.get('signal') == 'Kering'], 'P1')
+    # P3 signal B
+    add([r for r in p3_list if 'B' in str(r.get('signal',''))], 'P3')
+    # OL 3 hari
+    add([r for r in ol_list if r.get('ol_count',0) >= 3], 'OL3')
+    # BOS entry
+    add([r for r in bos_list if r.get('entry','') != 'Tunggu'], 'BOS')
+    # BOH vol kering
+    add([r for r in boh_list if r.get('vol_kering')], 'BOH')
+    # TTx reminder
+    add([r for r in ttx_list if r.get('priority') == 0], 'TTx🔔')
+    # Stockpick original
+    add(sp_list, 'SP')
+
+    result = list(picks.values())
+    # Prioritaskan yang muncul di banyak pola, lalu Chg% desc, H/P% desc
+    result.sort(key=lambda x: (-len(x['pola']), -x['chg'], -x['hvp']))
+    return result
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
@@ -822,6 +869,7 @@ def main():
         bos_list  = scan_bos(all_ohlcv, avg_vols, target)
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
+        auto_sp   = auto_stockpick(boa_list, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list)
 
     # ── Info bar ──────────────────────────────────────────────────────────────
     c1,c2,c3,c4 = st.columns(4)
@@ -856,7 +904,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick","🚀 BOS","📈 BOH","⏰ TTx"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -1189,6 +1237,46 @@ def main():
             with st.expander(f"❓ Miss/Lewat ({len(miss_lst)} saham)"):
                 st.dataframe(pd.DataFrame(ttx_rows(miss_lst)).style
                     .format({'Chg%':'{:+.2f}'}), use_container_width=True)
+
+
+    # Tab Auto StockPick
+    with tabs[11]:
+        st.markdown(f"**⭐ Auto StockPick — Kompilasi Terbaik Semua Pola | WL Only | {target}**")
+        st.caption("Saham yang muncul di ≥2 pola diprioritaskan. Sorted: jumlah pola → Chg% → H/P%")
+        if auto_sp:
+            rows = []
+            for r in auto_sp:
+                rows.append({
+                    'Code': r['code'],
+                    'Close': r['close'],
+                    'Chg%': r['chg'],
+                    'H/P%': r['hvp'],
+                    'Pola': ' | '.join(r['pola']),
+                    'N Pola': len(r['pola']),
+                })
+            df_sp = pd.DataFrame(rows)
+            st.dataframe(
+                df_sp.style
+                .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
+                          else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
+                     subset=['Chg%','H/P%'])
+                .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}'})
+                .apply(lambda x: ['background:#1e3a2f' if x['N Pola']>=2 else '' for _ in x], axis=1),
+                use_container_width=True,
+                height=500
+            )
+            # Summary chips per pola
+            st.divider()
+            st.markdown("**Distribusi pola:**")
+            all_polas = {}
+            for r in auto_sp:
+                for p in r['pola']:
+                    all_polas[p] = all_polas.get(p, 0) + 1
+            cols = st.columns(len(all_polas))
+            for i, (p, n) in enumerate(sorted(all_polas.items(), key=lambda x: -x[1])):
+                cols[i].metric(p, n)
+        else:
+            st.info("Belum ada sinyal Auto StockPick hari ini.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
