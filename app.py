@@ -1447,65 +1447,141 @@ def main():
 
     # Tab Auto StockPick
     with tabs[10]:
-        st.markdown(f"**⭐ Auto StockPick — Kompilasi Terbaik Semua Pola | WL Only | {target}**")
+        st.markdown(f"**⭐ Auto StockPick — {target}**")
         st.caption("Filter: ≥3 pola ATAU 2 pola + spike ≥5% dalam 10H | Sorted: Chg% → H/P% → N Pola")
-        if auto_sp:
-            rows = []
-            for r in auto_sp:
-                rows.append({
-                    'Code': r['code'],
-                    'Close': r['close'],
-                    'Chg%': r['chg'],
-                    'H/P%': r['hvp'],
-                    'Pola': ' | '.join(r['pola']),
-                    'N Pola': len(r['pola']),
-                    'Filter': r.get('filter',''),
-                })
 
-            df_sp = pd.DataFrame(rows)
-            st.dataframe(
-                df_sp.style
-                .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
-                          else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
-                     subset=['Chg%','H/P%'])
-                .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}'}),
-                use_container_width=True,
-                height=400,
-                hide_index=True,
+        if auto_sp:
+            # Kumpulkan semua saham aktif dari semua pola
+            active_codes = {}
+            def collect(lst, pola):
+                for r in lst:
+                    if not r.get('in_wl'): continue
+                    code = r['code']
+                    if code not in active_codes:
+                        active_codes[code] = {'chg': r.get('chg',0), 'hvp': r.get('hvp',0), 'pola': []}
+                    if pola not in active_codes[code]['pola']:
+                        active_codes[code]['pola'].append(pola)
+            collect(boa_full, 'BOA✅'); collect(boa_near, 'BOA~')
+            collect([r for r in p1_list  if r.get('signal')=='Kering'], 'P1')
+            collect([r for r in p3_list  if 'B' in str(r.get('signal',''))], 'P3')
+            collect([r for r in ol_list  if r.get('ol_count',0)>=3], 'OL3')
+            collect([r for r in bos_list if r.get('entry','')!='Tunggu'], 'BOS')
+            collect([r for r in boh_list if r.get('vol_kering')], 'BOH')
+            collect([r for r in ttx_list if r.get('priority')==0], 'TTx🔔')
+            collect(sp_list, 'SP')
+
+            # Heatmap HTML
+            def chg_to_style(chg):
+                if chg >= 8:   return '#5DCAA5', '#04342C'
+                if chg >= 4:   return '#9FE1CB', '#085041'
+                if chg >= 1:   return '#E1F5EE', '#0F6E56'
+                if chg > -1:   return '#555552', '#D3D1C7'
+                if chg > -3:   return '#F5C4B3', '#4A1B0C'
+                if chg > -5:   return '#F0997B', '#4A1B0C'
+                return '#D85A30', '#FAECE7'
+
+            hm_parts = []
+            for code, info in sorted(active_codes.items(), key=lambda x: -x[1]['chg']):
+                bg, fg = chg_to_style(info['chg'])
+                sign = '+' if info['chg'] > 0 else ''
+                n = len(info['pola'])
+                bdr = '2px solid #1D9E75' if n >= 3 else '1px solid rgba(128,128,128,0.2)'
+                part = (
+                    '<div style="background:' + bg + ';color:' + fg + ';border:' + bdr + ';'
+                    'border-radius:8px;padding:6px 10px;min-width:64px;text-align:center;">'
+                    '<div style="font-size:12px;font-weight:600;">' + code + '</div>'
+                    '<div style="font-size:11px;">' + sign + str(round(info['chg'],1)) + '%</div>'
+                    '<div style="font-size:10px;opacity:0.8;">' + str(n) + ' pola</div>'
+                    '</div>'
+                )
+                hm_parts.append(part)
+            hm_html = '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">' + ''.join(hm_parts) + '</div>'
+            st.markdown(f"**Heatmap Aktif — {len(active_codes)} saham** (border hijau = ≥3 pola)")
+            st.html(hm_html)
+            st.divider()
+
+            # Tabel dengan badge + sparkline
+            BADGE = {
+                'BOA✅': ('#EEEDFE','#3C3489'), 'BOA~': ('#EEEDFE','#534AB7'),
+                'BOS':   ('#E1F5EE','#085041'), 'BOH':  ('#FAECE7','#712B13'),
+                'TTx🔔': ('#FAEEDA','#633806'), 'SP':   ('#E6F1FB','#0C447C'),
+                'P1':    ('#FCEBEB','#791F1F'), 'P3':   ('#FBEAF0','#4B1528'),
+                'OL3':   ('#EAF3DE','#27500A'),
+            }
+
+            tbl_rows = []
+            for r in auto_sp:
+                bars_data = all_ohlcv.get(r['code'], [])
+                cls = [b['C'] for b in bars_data[-14:] if b.get('C')]
+                if len(cls) >= 3:
+                    mn, mx = min(cls), max(cls)
+                    rng = mx - mn if mx > mn else 1
+                    spark_parts = []
+                    for i2, c in enumerate(cls):
+                        h = max(3, int((c - mn) / rng * 18))
+                        col = '#1D9E75' if i2 == 0 or c >= cls[i2-1] else '#D85A30'
+                        spark_parts.append('<span style="display:inline-block;width:3px;height:' + str(h) + 'px;background:' + col + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
+                    spark = '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(spark_parts) + '</div>'
+                else:
+                    spark = '—'
+
+                badge_parts = []
+                for p in r['pola']:
+                    bg2, fg2 = BADGE.get(p, ('#E6F1FB','#0C447C'))
+                    badge_parts.append('<span style="background:' + bg2 + ';color:' + fg2 + ';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;margin-right:3px;white-space:nowrap">' + p + '</span>')
+                badges = ''.join(badge_parts)
+
+                chg = r['chg']; hvp = r['hvp']
+                cc = '#4ade80' if chg > 0 else ('#f87171' if chg < 0 else '#888')
+                hc = '#4ade80' if hvp > 0 else ('#f87171' if hvp < 0 else '#888')
+                sc = '+' if chg > 0 else ''; sh = '+' if hvp > 0 else ''
+
+                tbl_rows.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                    '<td style="padding:8px 10px;font-weight:600">' + r['code'] + '</td>'
+                    '<td style="padding:8px 10px;text-align:right">' + str(r['close']) + '</td>'
+                    '<td style="padding:8px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(round(chg,2)) + '%</td>'
+                    '<td style="padding:8px 10px;text-align:right;color:' + hc + ';font-weight:500">' + sh + str(round(hvp,2)) + '%</td>'
+                    '<td style="padding:8px 10px;text-align:center">' + spark + '</td>'
+                    '<td style="padding:8px 10px">' + badges + '</td>'
+                    '<td style="padding:8px 10px;font-size:11px;color:#888">' + r.get('filter','') + '</td>'
+                    '</tr>'
+                )
+
+            tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.2)">'
+                '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Code</th>'
+                '<th style="padding:8px 10px;text-align:right;color:#888;font-weight:400">Close</th>'
+                '<th style="padding:8px 10px;text-align:right;color:#888;font-weight:400">Chg%</th>'
+                '<th style="padding:8px 10px;text-align:right;color:#888;font-weight:400">H/P%</th>'
+                '<th style="padding:8px 10px;text-align:center;color:#888;font-weight:400">Trend 14H</th>'
+                '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Pola</th>'
+                '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Filter</th>'
+                '</tr></thead><tbody>' + ''.join(tbl_rows) + '</tbody></table>'
             )
+            st.markdown(f"**{len(auto_sp)} saham terseleksi**")
+            st.html(tbl_html)
 
             # Chart candlestick
             st.divider()
             codes_available = [r['code'] for r in auto_sp]
             col_sel, col_day = st.columns([3,1])
-            selected = col_sel.selectbox(
-                '📊 Pilih saham untuk chart candlestick:',
-                options=codes_available,
-                index=0,
-                key='autosp_chart_select'
-            )
-            n_days = col_day.selectbox(
-                'Periode:',
-                options=[14, 21, 30],
-                index=2,
-                key='autosp_chart_days'
-            )
+            selected = col_sel.selectbox('📊 Chart:', options=codes_available, index=0, key='autosp_chart_select')
+            n_days = col_day.selectbox('Periode:', options=[14,21,30], index=2, key='autosp_chart_days')
             render_candlestick(selected, all_ohlcv, n_days=n_days)
 
-            # Summary chips per pola
+            # Distribusi pola
             st.divider()
-            st.markdown("**Distribusi pola:**")
             all_polas = {}
             for r in auto_sp:
                 for p in r['pola']:
-                    all_polas[p] = all_polas.get(p, 0) + 1
-            cols = st.columns(min(len(all_polas), 8))
-            for i, (p, n) in enumerate(sorted(all_polas.items(), key=lambda x: -x[1])):
-                cols[i % len(cols)].metric(p, n)
+                    all_polas[p] = all_polas.get(p,0) + 1
+            cols2 = st.columns(min(len(all_polas),8))
+            for i3,(p,n) in enumerate(sorted(all_polas.items(),key=lambda x:-x[1])):
+                cols2[i3 % len(cols2)].metric(p, n)
         else:
             st.info("Belum ada sinyal Auto StockPick hari ini.")
-
-
     # Tab Track Record
     with tabs[12]:
         st.markdown(f"**📋 Track Record StockPick | Entry → Max High T+1~T+5 | Semua Histori**")
