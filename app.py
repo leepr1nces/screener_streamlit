@@ -729,46 +729,59 @@ def load_from_folder(folder="data"):
 # AUTO STOCKPICK RANGKUMAN — Kompilasi terbaik dari semua pola
 # ══════════════════════════════════════════════════════════════════════════════
 def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list,
-                   sp_list, bos_list, boh_list, ttx_list):
-    """Kompilasi saham terbaik dari semua pola, sorted Chg% desc lalu H/P% desc."""
+                   sp_list, bos_list, boh_list, ttx_list, all_ohlcv=None, target=None):
+    """Kompilasi saham terbaik dari semua pola.
+    Filter: >=3 pola ATAU (2 pola + spike H/P>=5% dalam 10H terakhir).
+    Sorted: jumlah pola desc -> Chg% desc -> H/P% desc.
+    """
     picks = {}
 
-    def add(lst, pola, min_chg=-99):
+    def add(lst, pola):
         for r in lst:
             if not r.get('in_wl'): continue
             code = r['code']
             chg = r.get('chg', 0)
             hvp = r.get('hvp', 0)
-            if chg < min_chg: continue
             if code not in picks:
                 picks[code] = {'code': code, 'chg': chg, 'hvp': hvp,
                                'close': r.get('close', 0), 'pola': []}
             if pola not in picks[code]['pola']:
                 picks[code]['pola'].append(pola)
-            # Update chg/hvp ke yang terbaru
             picks[code]['chg'] = chg
             picks[code]['hvp'] = hvp
 
-    # BOA full (score tinggi)
     add(boa_full, 'BOA✅')
     add(boa_near, 'BOA~')
-    # P1 entry
-    add([r for r in p1_list if r.get('signal') == 'Kering'], 'P1')
-    # P3 signal B
-    add([r for r in p3_list if 'B' in str(r.get('signal',''))], 'P3')
-    # OL 3 hari
-    add([r for r in ol_list if r.get('ol_count',0) >= 3], 'OL3')
-    # BOS entry
+    add([r for r in p1_list  if r.get('signal') == 'Kering'], 'P1')
+    add([r for r in p3_list  if 'B' in str(r.get('signal',''))], 'P3')
+    add([r for r in ol_list  if r.get('ol_count',0) >= 3], 'OL3')
     add([r for r in bos_list if r.get('entry','') != 'Tunggu'], 'BOS')
-    # BOH vol kering
     add([r for r in boh_list if r.get('vol_kering')], 'BOH')
-    # TTx reminder
     add([r for r in ttx_list if r.get('priority') == 0], 'TTx🔔')
-    # Stockpick original
     add(sp_list, 'SP')
 
-    result = list(picks.values())
-    # Prioritaskan yang muncul di banyak pola, lalu Chg% desc, H/P% desc
+    def has_spike_10h(code):
+        """Cek apakah ada spike H/P >= 5% dalam 10 hari terakhir."""
+        if all_ohlcv is None or code not in all_ohlcv: return False
+        bars = all_ohlcv[code]
+        window = bars[-10:] if len(bars) >= 10 else bars
+        for b in window:
+            if b.get('H') and b.get('P') and b['P'] > 0:
+                if (b['H'] - b['P']) / b['P'] * 100 >= 5:
+                    return True
+        return False
+
+    # Filter: >=3 pola ATAU (2 pola + spike 10H)
+    result = []
+    for r in picks.values():
+        n = len(r['pola'])
+        if n >= 3:
+            r['filter'] = f'{n} pola'
+            result.append(r)
+        elif n == 2 and has_spike_10h(r['code']):
+            r['filter'] = '2 pola + spike'
+            result.append(r)
+
     result.sort(key=lambda x: (-len(x['pola']), -x['chg'], -x['hvp']))
     return result
 
@@ -870,7 +883,7 @@ def main():
         bos_list  = scan_bos(all_ohlcv, avg_vols, target)
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
-        auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list)
+        auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list, all_ohlcv, target)
 
     # ── Info bar ──────────────────────────────────────────────────────────────
     c1,c2,c3,c4 = st.columns(4)
@@ -1254,6 +1267,7 @@ def main():
                     'H/P%': r['hvp'],
                     'Pola': ' | '.join(r['pola']),
                     'N Pola': len(r['pola']),
+                    'Filter': r.get('filter',''),
                 })
             df_sp = pd.DataFrame(rows)
             st.dataframe(
