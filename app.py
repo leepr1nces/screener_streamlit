@@ -521,6 +521,12 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
                       for b in period8)
         if spike8:
             continue
+        # Kriteria 4: Kemarin harus Doji (prev open == prev close, toleransi 0.8%)
+        if not b1 or not b1.get('O') or not b1.get('C') or b1['O'] <= 0:
+            continue
+        doji_prev = abs(b1['C'] - b1['O']) / b1['O'] * 100 < 0.8
+        if not doji_prev:
+            continue
         sc = 50.0 + vr0*10 + chg0*5 + (max_hvp - hvp0)
         if in_wl: sc += 30
         vp = v0/v1 if v1 > 0 else 0
