@@ -782,7 +782,7 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
             r['filter'] = '2 pola + spike'
             result.append(r)
 
-    result.sort(key=lambda x: (-len(x['pola']), -x['chg'], -x['hvp']))
+    result.sort(key=lambda x: (-x['chg'], -x['hvp'], -len(x['pola'])))
     return result
 
 # ══════════════════════════════════════════════════════════════════════════════
