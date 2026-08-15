@@ -1300,6 +1300,81 @@ def main():
         )
 
         lst = sp_wl if show_only_wl else sp_list
+
+        # ── Heatmap Monitor Posisi Open ─────────────────────────────
+        dates_sorted_sp = sorted(all_dates)
+        target_idx_sp = dates_sorted_sp.index(target) if target in dates_sorted_sp else -1
+        lookback_dates_sp = dates_sorted_sp[max(0, target_idx_sp-4):target_idx_sp]
+
+        avg_vols_sp = {}
+        for c_sp, b_sp in all_ohlcv.items():
+            v_sp = [b.get('V',0) for b in b_sp if b.get('V',0)>0]
+            avg_vols_sp[c_sp] = float(np.mean(v_sp)) if v_sp else 1.0
+
+        monitor_sp = {}
+        for d_sp in lookback_dates_sp:
+            sp_d = scan_stockpick(all_ohlcv, avg_vols_sp, d_sp)
+            for r_sp in sp_d:
+                if not r_sp.get('in_wl'): continue
+                code_sp = r_sp['code']
+                if code_sp in monitor_sp: continue
+                bars_sp = all_ohlcv.get(code_sp, [])
+                entry_b = next((b for b in bars_sp if b['date']==d_sp), None)
+                if not entry_b: continue
+                entry_c = entry_b.get('C', 0)
+                entry_h = entry_b.get('H', entry_c)
+                today_b = next((b for b in bars_sp if b['date']==target), None)
+                if not today_b or entry_c <= 0: continue
+                curr_c = today_b.get('C', 0)
+                curr_h = today_b.get('H', curr_c)
+                if curr_h >= entry_h: continue
+                gain_sp = (curr_c - entry_c) / entry_c * 100
+                day_n_sp = lookback_dates_sp.index(d_sp) + 1
+                monitor_sp[code_sp] = {
+                'entry_date': d_sp[5:], 'entry_close': int(entry_c),
+                'entry_high': int(entry_h), 'curr_close': int(curr_c),
+                'gain': round(gain_sp,2), 'day_n': day_n_sp,
+                }
+
+        def gain_style_sp(g):
+            if g >= 5:   return '#5DCAA5','#04342C'
+            if g >= 1:   return '#9FE1CB','#085041'
+            if g > -1:   return '#555552','#D3D1C7'
+            if g > -5:   return '#F5C4B3','#4A1B0C'
+            return '#D85A30','#FAECE7'
+
+        if monitor_sp:
+            hm_sp_parts = []
+            for code_m, info_m in sorted(monitor_sp.items(), key=lambda x: -x[1]['gain']):
+                bg_m, fg_m = gain_style_sp(info_m['gain'])
+                sign_m = '+' if info_m['gain'] > 0 else ''
+                hm_sp_parts.append(
+                '<div style="background:' + bg_m + ';color:' + fg_m + ';border:1px solid rgba(128,128,128,0.2);'
+                'border-radius:8px;padding:6px 10px;min-width:72px;text-align:center;">'
+                '<div style="font-size:12px;font-weight:600;">' + code_m + '</div>'
+                '<div style="font-size:12px;font-weight:500;">' + sign_m + str(info_m['gain']) + '%</div>'
+                '<div style="font-size:10px;opacity:0.8;">H+' + str(info_m['day_n']) + ' | @' + str(info_m['entry_close']) + '</div>'
+                '</div>'
+                )
+            hm_sp_html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">' + ''.join(hm_sp_parts) + '</div>'
+            st.markdown(f"**Monitor Posisi Open — {len(monitor_sp)} saham** (H-1 s/d H-4, belum tembus High entry)")
+            st.html(hm_sp_html)
+            st.divider()
+
+
+        def make_sparkline(code):
+            bars_s = all_ohlcv.get(code, [])
+            cls_s = [b['C'] for b in bars_s[-14:] if b.get('C')]
+            if len(cls_s) < 3: return '—'
+            mn_s, mx_s = min(cls_s), max(cls_s)
+            rng_s = mx_s - mn_s if mx_s > mn_s else 1
+            parts_s = []
+            for i_s, c_s in enumerate(cls_s):
+                h_s = max(3, int((c_s - mn_s) / rng_s * 18))
+                col_s = '#1D9E75' if i_s == 0 or c_s >= cls_s[i_s-1] else '#D85A30'
+                parts_s.append('<span style="display:inline-block;width:3px;height:' + str(h_s) + 'px;background:' + col_s + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
+            return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
+
         if lst:
             rows = []
             for r in lst:
