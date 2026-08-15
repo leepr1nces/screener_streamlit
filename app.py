@@ -893,6 +893,89 @@ def render_candlestick(code, all_ohlcv, n_days=30):
 
     st.plotly_chart(fig, use_container_width=True)
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRACK RECORD — StockPick Performance
+# ══════════════════════════════════════════════════════════════════════════════
+def build_trackrecord(all_ohlcv, all_dates, max_hold=5):
+    """
+    Hitung track record StockPick dari semua data historis.
+    - Entry: emiten lolos StockPick di hari T
+    - Hasil: High tertinggi T+1 s/d T+5
+    - Gain%: (Max High - Close Entry) / Close Entry * 100
+    """
+    import numpy as np
+
+    # Buat dummy avg_vols dari semua data
+    avg_vols = {}
+    for code, bars in all_ohlcv.items():
+        vols = [b.get('V',0) for b in bars if b.get('V',0) > 0]
+        avg_vols[code] = float(np.mean(vols)) if vols else 1.0
+
+    records = []
+    # Loop setiap tanggal kecuali 5 terakhir (belum ada data hasil)
+    dates_sorted = sorted(all_dates)
+
+    for i, date_t in enumerate(dates_sorted):
+        # Scan StockPick di hari T
+        sp = scan_stockpick(all_ohlcv, avg_vols, date_t)
+        sp_wl = [r for r in sp if r['in_wl']]
+        if not sp_wl:
+            continue
+
+        # Tanggal T+1 s/d T+5
+        future_dates = dates_sorted[i+1:i+1+max_hold]
+
+        for r in sp_wl:
+            code = r['code']
+            close_entry = r['close']
+            bars = all_ohlcv.get(code, [])
+
+            # Cari High tertinggi di T+1 s/d T+5
+            max_high = 0
+            max_high_date = None
+            days_checked = 0
+            for fd in future_dates:
+                bar = next((b for b in bars if b['date'] == fd), None)
+                if bar and bar.get('H'):
+                    days_checked += 1
+                    if bar['H'] > max_high:
+                        max_high = bar['H']
+                        max_high_date = fd
+
+            # Hitung gain
+            if max_high > 0 and close_entry > 0:
+                gain = (max_high - close_entry) / close_entry * 100
+            else:
+                gain = None
+
+            # Status
+            if len(future_dates) == 0:
+                status = '⏳ Running'
+            elif days_checked < max_hold and len(future_dates) < max_hold:
+                status = '⏳ Running'
+            elif gain is None:
+                status = '❓ No Data'
+            elif gain >= 5:
+                status = '✅ Profit'
+            elif gain >= 0:
+                status = '🟡 Tipis'
+            else:
+                status = '❌ Loss'
+
+            records.append({
+                'Tanggal Entry': date_t,
+                'Code': code,
+                'Close Entry': close_entry,
+                'Max High (T+1~5)': int(max_high) if max_high else '-',
+                'Max High Date': max_high_date or '-',
+                'Gain%': round(gain, 2) if gain is not None else None,
+                'Hold Days': days_checked,
+                'Status': status,
+            })
+
+    return records
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
@@ -961,8 +1044,11 @@ def main():
             st.error("Tidak ada data yang terbaca. Cek format file."); return
 
         dates = []
+        all_dates = set()
         for bars in all_ohlcv.values():
-            if bars: dates.append(bars[-1]['date'])
+            if bars:
+                dates.append(bars[-1]['date'])
+                for b in bars: all_dates.add(b['date'])
         target = max(dates) if dates else None
         if not target:
             st.error("Tidak bisa baca tanggal."); return
@@ -1021,7 +1107,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP","📋 TrackRecord"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -1401,6 +1487,69 @@ def main():
                 cols[i % len(cols)].metric(p, n)
         else:
             st.info("Belum ada sinyal Auto StockPick hari ini.")
+
+
+    # Tab Track Record
+    with tabs[12]:
+        st.markdown(f"**📋 Track Record StockPick | Entry → Max High T+1~T+5 | Semua Histori**")
+        st.caption("Entry = muncul di StockPick hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
+
+        with st.spinner("Menghitung track record dari semua data..."):
+            tr_records = build_trackrecord(all_ohlcv, all_dates, max_hold=5)
+
+        if tr_records:
+            df_tr = pd.DataFrame(tr_records)
+
+            # Summary metrics
+            total = len(df_tr)
+            done  = df_tr[df_tr['Status'].isin(['✅ Profit','🟡 Tipis','❌ Loss'])]
+            profit = len(df_tr[df_tr['Status'] == '✅ Profit'])
+            tipis  = len(df_tr[df_tr['Status'] == '🟡 Tipis'])
+            loss   = len(df_tr[df_tr['Status'] == '❌ Loss'])
+            running = len(df_tr[df_tr['Status'] == '⏳ Running'])
+            winrate = round(profit / len(done) * 100, 1) if len(done) > 0 else 0
+            avg_gain = round(done['Gain%'].mean(), 2) if len(done) > 0 and done['Gain%'].notna().any() else 0
+
+            c1,c2,c3,c4,c5,c6 = st.columns(6)
+            c1.metric("Total Entry", total)
+            c2.metric("✅ Profit (≥5%)", profit)
+            c3.metric("🟡 Tipis (0~5%)", tipis)
+            c4.metric("❌ Loss", loss)
+            c5.metric("⏳ Running", running)
+            c6.metric("Win Rate", f"{winrate}%")
+
+            st.divider()
+
+            # Filter status
+            filter_status = st.multiselect(
+                "Filter Status:",
+                options=['✅ Profit','🟡 Tipis','❌ Loss','⏳ Running'],
+                default=['✅ Profit','🟡 Tipis','❌ Loss','⏳ Running'],
+                key='tr_filter'
+            )
+            df_show = df_tr[df_tr['Status'].isin(filter_status)] if filter_status else df_tr
+            df_show = df_show.sort_values(['Tanggal Entry','Gain%'], ascending=[False, False])
+
+            st.dataframe(
+                df_show.style
+                .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v,float) and v and v>=5
+                          else ('color:#facc15' if isinstance(v,float) and v and 0<=v<5
+                          else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v and v<0 else '')),
+                     subset=['Gain%'])
+                .format({'Gain%': lambda x: f'+{x:.2f}%' if x and x>0 else (f'{x:.2f}%' if x else '-')}),
+                use_container_width=True,
+                height=500,
+                hide_index=True,
+            )
+
+            # Chart candlestick dari track record
+            st.divider()
+            tr_codes = df_show['Code'].unique().tolist()
+            if tr_codes:
+                sel_tr = st.selectbox('📊 Chart saham:', tr_codes, key='tr_chart_select')
+                render_candlestick(sel_tr, all_ohlcv, n_days=30)
+        else:
+            st.info("Belum ada data track record. Upload lebih banyak file screener ke folder data/.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
