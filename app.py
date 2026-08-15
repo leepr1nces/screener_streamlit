@@ -1113,6 +1113,80 @@ def main():
             <div style="font-size:0.72rem;color:#aaa;">{label}</div>
         </div>""", unsafe_allow_html=True)
 
+    # ── Heatmap Koreksi (T-2, T-3, T-4) ────────────────────────────────
+    dates_sorted_hdr = sorted(all_dates)
+    tidx = dates_sorted_hdr.index(target) if target in dates_sorted_hdr else -1
+    lookback_hdr = dates_sorted_hdr[max(0, tidx-4):tidx]  # T-4 s/d T-1
+
+    heatmap_kandidat = {}
+    for d_hdr in lookback_hdr:
+        d_pos = lookback_hdr.index(d_hdr)
+        if d_pos == 0: continue  # butuh hari sebelumnya untuk vol comparison
+        d_prev = lookback_hdr[d_pos - 1]
+
+        for code, bars_hdr in all_ohlcv.items():
+            if code not in ALL_WL: continue
+            if code in heatmap_kandidat: continue  # ambil yang paling awal
+
+            bar_d    = next((b for b in bars_hdr if b['date'] == d_hdr), None)
+            bar_prev = next((b for b in bars_hdr if b['date'] == d_prev), None)
+            bar_today = next((b for b in bars_hdr if b['date'] == target), None)
+
+            if not bar_d or not bar_prev or not bar_today: continue
+            if not bar_d.get('C') or not bar_d.get('P') or bar_d['P'] <= 0: continue
+
+            # Kriteria 1: Chg% 3%-7% di hari itu
+            chg_d = (bar_d['C'] - bar_d['P']) / bar_d['P'] * 100
+            if not (3.0 <= chg_d <= 7.0): continue
+
+            # Kriteria 2: Volume hari itu > volume sebelumnya
+            vol_d    = bar_d.get('V', 0)
+            vol_prev = bar_prev.get('V', 0)
+            if vol_prev <= 0 or vol_d <= vol_prev: continue
+
+            # Kriteria 3: Hari ini Close/Prev <= 2% (koreksi/flat)
+            if not bar_today.get('C') or not bar_today.get('P') or bar_today['P'] <= 0: continue
+            chg_today = (bar_today['C'] - bar_today['P']) / bar_today['P'] * 100
+            if chg_today > 2.0: continue
+
+            # Gain dari entry ke hari ini
+            gain_hdr = (bar_today['C'] - bar_d['C']) / bar_d['C'] * 100
+            day_ago = tidx - dates_sorted_hdr.index(d_hdr)
+
+            heatmap_kandidat[code] = {
+                'chg_entry': round(chg_d, 1),
+                'chg_today': round(chg_today, 1),
+                'gain': round(gain_hdr, 1),
+                'day_ago': day_ago,
+                'entry_close': int(bar_d['C']),
+                'curr_close': int(bar_today['C']),
+            }
+
+    if heatmap_kandidat:
+        def hdr_style(gain):
+            if gain >= 3:   return '#5DCAA5','#04342C'
+            if gain >= 0:   return '#9FE1CB','#085041'
+            if gain > -3:   return '#EF9F27','#412402'
+            return '#F0997B','#4A1B0C'
+
+        hm_hdr_parts = []
+        for code, info in sorted(heatmap_kandidat.items(), key=lambda x: -x[1]['gain']):
+            bg, fg = hdr_style(info['gain'])
+            sign = '+' if info['gain'] > 0 else ''
+            sign_t = '+' if info['chg_today'] > 0 else ''
+            hm_hdr_parts.append(
+                '<div style="background:' + bg + ';color:' + fg + ';border:1px solid rgba(128,128,128,0.2);'
+                'border-radius:8px;padding:6px 10px;min-width:72px;text-align:center;cursor:pointer;">'
+                '<div style="font-size:12px;font-weight:700;">' + code + '</div>'
+                '<div style="font-size:11px;font-weight:500;">' + sign + str(info['gain']) + '%</div>'
+                '<div style="font-size:10px;opacity:0.8;">T-' + str(info['day_ago']) + ' @' + str(info['entry_close']) + '</div>'
+                '<div style="font-size:10px;opacity:0.75;">hari ini ' + sign_t + str(info['chg_today']) + '%</div>'
+                '</div>'
+            )
+        hm_hdr_html = '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + ''.join(hm_hdr_parts) + '</div>'
+        st.markdown(f"**Pantau Koreksi — {len(heatmap_kandidat)} saham** (naik 3–7% + vol naik di T-2/3/4, hari ini ≤2%)")
+        st.html(hm_hdr_html)
+
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
