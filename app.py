@@ -492,8 +492,8 @@ def style_vol(df, col='Vol'):
 # STOCKPICK BUY CLOSE
 # ══════════════════════════════════════════════════════════════════════════════
 def scan_stockpick(all_ohlcv, avg_vols, target,
-                   max_hvp=7.0, min_chg=0.0, max_chg=5.0,
-                   lookback=7, max_c7=7.0):
+                   min_hvp=2.0, max_hvp=12.0,
+                   lookback=8, max_close=10.0):
     results = []
     for code, bars in all_ohlcv.items():
         if not bars or bars[-1]['date'] != target or len(bars) < 3:
@@ -509,20 +509,17 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
         v1   = b1.get('V', 0) if b1 else 0
         avg_vol = avg_vols.get(code, 1.0)
         vr0  = v0 / avg_vol if avg_vol > 0 else 0
-        # Kriteria 1: H/P <= max_hvp
-        if hvp0 > max_hvp:
+        # Kriteria 1: H/P >= min_hvp DAN <= max_hvp
+        if hvp0 < min_hvp or hvp0 > max_hvp:
             continue
-        # Kriteria 2: Close/Prev antara min_chg dan max_chg
-        if chg0 < min_chg or chg0 > max_chg:
-            continue
-        # Kriteria 3: Volume hari ini > kemarin
+        # Kriteria 2: Volume hari ini > kemarin
         if v1 <= 0 or v0 <= v1:
             continue
-        # Kriteria 4: 7H ke belakang tidak ada close >= max_c7
-        period7 = bars[-lookback-1:-1]
-        spike7  = any(b.get('P') and b['P'] > 0 and pct(b['C'], b['P']) >= max_c7
-                      for b in period7)
-        if spike7:
+        # Kriteria 3: 8H ke belakang tidak ada Close/Prev >= max_close
+        period8 = bars[-lookback-1:-1]
+        spike8  = any(b.get('P') and b['P'] > 0 and pct(b['C'], b['P']) >= max_close
+                      for b in period8)
+        if spike8:
             continue
         sc = 50.0 + vr0*10 + chg0*5 + (max_hvp - hvp0)
         if in_wl: sc += 30
@@ -948,12 +945,7 @@ def main():
         alert_list= scan_alert(all_ohlcv, avg_vols, target)
         clean     = scan_bersih(all_ohlcv, avg_vols, target,
                                 p1_list, p3_list, boa_full, boa_near, sv_list)
-        # Stockpick — ambil parameter dari session state
-        sp_hvp  = st.session_state.get('sp_hvp',  7.0)
-        sp_min  = st.session_state.get('sp_min',  0.0)
-        sp_max  = st.session_state.get('sp_max',  5.0)
-        sp_list = scan_stockpick(all_ohlcv, avg_vols, target,
-                                 max_hvp=sp_hvp, min_chg=sp_min, max_chg=sp_max)
+        sp_list = scan_stockpick(all_ohlcv, avg_vols, target)
         bos_list  = scan_bos(all_ohlcv, avg_vols, target)
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
@@ -1158,26 +1150,12 @@ def main():
     with tabs[7]:
         st.markdown("### 🛒 Stockpick Buy Close")
 
-        # Parameter
-        with st.expander("⚙️ Sesuaikan Parameter", expanded=False):
-            c1, c2, c3 = st.columns(3)
-            new_hvp = c1.slider("Max H/P%",     1.0, 15.0, 7.0, 0.5)
-            new_min = c2.slider("Min Close/P%", -5.0,  5.0, 0.0, 0.5)
-            new_max = c3.slider("Max Close/P%",  0.0, 15.0, 5.0, 0.5)
-            if st.button("🔄 Rescan"):
-                st.session_state['sp_hvp'] = new_hvp
-                st.session_state['sp_min'] = new_min
-                st.session_state['sp_max'] = new_max
-                sp_list = scan_stockpick(all_ohlcv, avg_vols, target,
-                                         max_hvp=new_hvp, min_chg=new_min, max_chg=new_max)
-                sp_wl_new = [r for r in sp_list if r['in_wl']]
-                st.success(f"Rescan selesai: {len(sp_wl_new)} WL")
+        # Parameter fixed (tidak perlu slider lagi)
 
         sp_wl  = [r for r in sp_list if r['in_wl']]
         sp_nwl = [r for r in sp_list if not r['in_wl']]
         st.markdown(
-            f"**Kriteria: H/P≤{sp_hvp:.0f}% | C/P={sp_min:.0f}~{sp_max:.0f}% | "
-            f"Vol>PrevVol | 7H bersih** — "
+            "**Kriteria: H/P 2–12% | Vol>PrevVol | 8H bersih**"
             f"WL: **{len(sp_wl)}** | Non-WL: {len(sp_nwl)}"
         )
 
