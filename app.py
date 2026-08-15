@@ -1451,53 +1451,72 @@ def main():
         st.caption("Filter: ≥3 pola ATAU 2 pola + spike ≥5% dalam 10H | Sorted: Chg% → H/P% → N Pola")
 
         if auto_sp:
-            # Kumpulkan semua saham aktif dari semua pola
-            active_codes = {}
-            def collect(lst, pola):
-                for r in lst:
+            # ── Heatmap Monitor Posisi Open (StockPick H-4) ──────────
+            dates_sorted_hm = sorted(all_dates)
+            target_idx_hm = dates_sorted_hm.index(target) if target in dates_sorted_hm else -1
+            lookback_dates = dates_sorted_hm[max(0, target_idx_hm-4):target_idx_hm]  # 4 hari sebelum hari ini
+
+            # Rebuild avg_vols untuk scan
+            avg_vols_hm = {}
+            for code_hm, bars_hm in all_ohlcv.items():
+                vols_hm = [b.get('V',0) for b in bars_hm if b.get('V',0)>0]
+                avg_vols_hm[code_hm] = float(np.mean(vols_hm)) if vols_hm else 1.0
+
+            monitor = {}  # code -> {entry_date, entry_close, entry_high, curr_close, day_n}
+            for d in lookback_dates:
+                sp_d = scan_stockpick(all_ohlcv, avg_vols_hm, d)
+                for r in sp_d:
                     if not r.get('in_wl'): continue
                     code = r['code']
-                    if code not in active_codes:
-                        active_codes[code] = {'chg': r.get('chg',0), 'hvp': r.get('hvp',0), 'pola': []}
-                    if pola not in active_codes[code]['pola']:
-                        active_codes[code]['pola'].append(pola)
-            collect(boa_full, 'BOA✅'); collect(boa_near, 'BOA~')
-            collect([r for r in p1_list  if r.get('signal')=='Kering'], 'P1')
-            collect([r for r in p3_list  if 'B' in str(r.get('signal',''))], 'P3')
-            collect([r for r in ol_list  if r.get('ol_count',0)>=3], 'OL3')
-            collect([r for r in bos_list if r.get('entry','')!='Tunggu'], 'BOS')
-            collect([r for r in boh_list if r.get('vol_kering')], 'BOH')
-            collect([r for r in ttx_list if r.get('priority')==0], 'TTx🔔')
-            collect(sp_list, 'SP')
+                    if code in monitor: continue  # ambil entry pertama saja
+                    bars_c = all_ohlcv.get(code, [])
+                    entry_bar = next((b for b in bars_c if b['date']==d), None)
+                    if not entry_bar: continue
+                    entry_close = entry_bar.get('C', 0)
+                    entry_high  = entry_bar.get('H', entry_close)
+                    # Cari close hari ini
+                    today_bar = next((b for b in bars_c if b['date']==target), None)
+                    if not today_bar: continue
+                    curr_close = today_bar.get('C', 0)
+                    curr_high  = today_bar.get('H', curr_close)
+                    # Belum menembus high entry
+                    if curr_high >= entry_high: continue
+                    if entry_close <= 0: continue
+                    gain = (curr_close - entry_close) / entry_close * 100
+                    day_n = lookback_dates.index(d) + 1
+                    monitor[code] = {
+                        'entry_date': d[5:], 'entry_close': entry_close,
+                        'entry_high': entry_high, 'curr_close': curr_close,
+                        'gain': round(gain,2), 'day_n': day_n,
+                    }
 
-            # Heatmap HTML
-            def chg_to_style(chg):
-                if chg >= 8:   return '#5DCAA5', '#04342C'
-                if chg >= 4:   return '#9FE1CB', '#085041'
-                if chg >= 1:   return '#E1F5EE', '#0F6E56'
-                if chg > -1:   return '#555552', '#D3D1C7'
-                if chg > -3:   return '#F5C4B3', '#4A1B0C'
-                if chg > -5:   return '#F0997B', '#4A1B0C'
-                return '#D85A30', '#FAECE7'
+            def gain_style(gain):
+                if gain >= 5:    return '#5DCAA5','#04342C'
+                if gain >= 1:    return '#9FE1CB','#085041'
+                if gain > -1:    return '#555552','#D3D1C7'
+                if gain > -5:    return '#F5C4B3','#4A1B0C'
+                return '#D85A30','#FAECE7'
 
             hm_parts = []
-            for code, info in sorted(active_codes.items(), key=lambda x: -x[1]['chg']):
-                bg, fg = chg_to_style(info['chg'])
-                sign = '+' if info['chg'] > 0 else ''
-                n = len(info['pola'])
-                bdr = '2px solid #1D9E75' if n >= 3 else '1px solid rgba(128,128,128,0.2)'
+            for code, info in sorted(monitor.items(), key=lambda x: -x[1]['gain']):
+                bg, fg = gain_style(info['gain'])
+                sign = '+' if info['gain'] > 0 else ''
                 part = (
-                    '<div style="background:' + bg + ';color:' + fg + ';border:' + bdr + ';'
-                    'border-radius:8px;padding:6px 10px;min-width:64px;text-align:center;">'
+                    '<div style="background:' + bg + ';color:' + fg + ';border:1px solid rgba(128,128,128,0.2);'
+                    'border-radius:8px;padding:6px 10px;min-width:68px;text-align:center;">'
                     '<div style="font-size:12px;font-weight:600;">' + code + '</div>'
-                    '<div style="font-size:11px;">' + sign + str(round(info['chg'],1)) + '%</div>'
-                    '<div style="font-size:10px;opacity:0.8;">' + str(n) + ' pola</div>'
+                    '<div style="font-size:11px;font-weight:500;">' + sign + str(info['gain']) + '%</div>'
+                    '<div style="font-size:10px;opacity:0.75;">H+' + str(info['day_n']) + ' | entry ' + str(info['entry_close']) + '</div>'
                     '</div>'
                 )
                 hm_parts.append(part)
-            hm_html = '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">' + ''.join(hm_parts) + '</div>'
-            st.markdown(f"**Heatmap Aktif — {len(active_codes)} saham** (border hijau = ≥3 pola)")
-            st.html(hm_html)
+
+            if hm_parts:
+                hm_html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">' + ''.join(hm_parts) + '</div>'
+                st.markdown(f"**Monitor Posisi Open — {len(monitor)} saham** (StockPick H-1 s/d H-4, belum tembus High entry)")
+                st.html(hm_html)
+            else:
+                st.info("Tidak ada posisi open dari StockPick 4 hari terakhir.")
             st.divider()
 
             # Tabel dengan badge + sparkline
