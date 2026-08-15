@@ -492,7 +492,7 @@ def style_vol(df, col='Vol'):
 # STOCKPICK BUY CLOSE
 # ══════════════════════════════════════════════════════════════════════════════
 def scan_stockpick(all_ohlcv, avg_vols, target,
-                   min_hvp=2.0, max_hvp=12.0,
+                   min_chg=2.0, max_chg=12.0,
                    lookback=8, max_close=10.0):
     results = []
     for code, bars in all_ohlcv.items():
@@ -509,8 +509,8 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
         v1   = b1.get('V', 0) if b1 else 0
         avg_vol = avg_vols.get(code, 1.0)
         vr0  = v0 / avg_vol if avg_vol > 0 else 0
-        # Kriteria 1: H/P >= min_hvp DAN <= max_hvp
-        if hvp0 < min_hvp or hvp0 > max_hvp:
+        # Kriteria 1: Chg% (Close/Prev) >= min_chg DAN <= max_chg
+        if chg0 < min_chg or chg0 > max_chg:
             continue
         # Kriteria 2: Volume hari ini > kemarin
         if v1 <= 0 or v0 <= v1:
@@ -527,7 +527,7 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
         doji_prev = abs(b1['C'] - b1['O']) / b1['O'] * 100 < 0.8
         if not doji_prev:
             continue
-        sc = 50.0 + vr0*10 + chg0*5 + (max_hvp - hvp0)
+        sc = 50.0 + vr0*10 + chg0*5 + hvp0
         if in_wl: sc += 30
         vp = v0/v1 if v1 > 0 else 0
         max_c7h = max((pct(b['C'],b['P']) for b in period8 if b.get('P') and b['P']>0), default=0.0)
