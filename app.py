@@ -873,9 +873,15 @@ def render_candlestick(code, all_ohlcv, n_days=30):
     fig.add_trace(go.Scatter(x=idx, y=ma14, mode='lines',
         line=dict(color='#f59e0b', width=1), name='MA14'), row=1, col=1)
 
-    # Volume bar
-    vol_colors = ['#4ade80' if c and o and c >= o else '#f87171'
-                  for c, o in zip(closes, opens)]
+    # Volume bar — hijau jika vol hari ini > kemarin
+    vol_colors = []
+    for i in range(len(vols)):
+        if i == 0:
+            vol_colors.append('#4ade80')
+        elif vols[i] > vols[i-1]:
+            vol_colors.append('#4ade80')
+        else:
+            vol_colors.append('#f87171')
     fig.add_trace(go.Bar(
         x=idx, y=vols, name='Volume',
         marker_color=vol_colors, opacity=0.7,
