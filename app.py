@@ -1107,7 +1107,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🛒 Stockpick","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP","📋 TrackRecord"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -1270,7 +1270,7 @@ def main():
             st.success("✅ Tidak ada Alert WL saat ini — pasar sehat!")
 
     # Tab Stockpick
-    with tabs[7]:
+    with tabs[11]:
         st.markdown("### 🛒 Stockpick Buy Close")
 
         # Parameter fixed (tidak perlu slider lagi)
@@ -1324,7 +1324,7 @@ def main():
 
 
     # Tab BOS
-    with tabs[8]:
+    with tabs[7]:
         lst = [r for r in bos_list if r['in_wl']] if show_only_wl else bos_list
         entry_lst = [r for r in lst if r['entry'] != 'Tunggu']
         wait_lst  = [r for r in lst if r['entry'] == 'Tunggu']
@@ -1357,7 +1357,7 @@ def main():
                 use_container_width=True, height=250)
 
     # Tab BOH
-    with tabs[9]:
+    with tabs[8]:
         lst = [r for r in boh_list if r['in_wl']] if show_only_wl else boh_list
         entry_lst = [r for r in lst if r['vol_kering']]
         watch_lst = [r for r in lst if not r['vol_kering']]
@@ -1388,7 +1388,7 @@ def main():
             st.info("Tidak ada BOH dalam pantauan.")
 
     # Tab TTx
-    with tabs[10]:
+    with tabs[9]:
         remind_lst   = [r for r in ttx_list if r['priority'] == 0]
         confirm_lst  = [r for r in ttx_list if r['priority'] == 1]
         upcoming_lst = [r for r in ttx_list if r['priority'] == 2]
@@ -1429,7 +1429,7 @@ def main():
 
 
     # Tab Auto StockPick
-    with tabs[11]:
+    with tabs[10]:
         st.markdown(f"**⭐ Auto StockPick — Kompilasi Terbaik Semua Pola | WL Only | {target}**")
         st.caption("Filter: ≥3 pola ATAU 2 pola + spike ≥5% dalam 10H | Sorted: Chg% → H/P% → N Pola")
         if auto_sp:
