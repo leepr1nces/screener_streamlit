@@ -524,7 +524,7 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
         sc = 50.0 + vr0*10 + chg0*5 + (max_hvp - hvp0)
         if in_wl: sc += 30
         vp = v0/v1 if v1 > 0 else 0
-        max_c7h = max((pct(b['C'],b['P']) for b in period7 if b.get('P') and b['P']>0), default=0.0)
+        max_c7h = max((pct(b['C'],b['P']) for b in period8 if b.get('P') and b['P']>0), default=0.0)
         green = b0['C'] > (b0.get('O') or b0['C'])
         ol  = bool(b0.get('O') and b0.get('L') and b0['O']>0 and abs(b0['O']-b0['L'])/b0['O']*100 < 0.5)
         doji= bool(b0.get('O') and b0['O']>0 and abs(b0['C']-b0['O'])/b0['O']*100 < 0.8)
