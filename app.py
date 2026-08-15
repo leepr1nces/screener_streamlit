@@ -1368,17 +1368,12 @@ def main():
             if len(cls_s) < 3: return '—'
             mn_s, mx_s = min(cls_s), max(cls_s)
             rng_s = mx_s - mn_s if mx_s > mn_s else 1
-            W, H, PAD = 64, 24, 2
-            pts = []
+            parts_s = []
             for i_s, c_s in enumerate(cls_s):
-                x = PAD + (i_s / (len(cls_s)-1)) * (W - PAD*2)
-                y = H - PAD - ((c_s - mn_s) / rng_s) * (H - PAD*2)
-                pts.append((x, y, c_s))
-            segs = ''
-            for i_s in range(1, len(pts)):
-                col_s = '#1D9E75' if pts[i_s][2] >= pts[i_s-1][2] else '#EF9F27'
-                segs += '<line x1="' + str(round(pts[i_s-1][0],1)) + '" y1="' + str(round(pts[i_s-1][1],1)) + '" x2="' + str(round(pts[i_s][0],1)) + '" y2="' + str(round(pts[i_s][1],1)) + '" stroke="' + col_s + '" stroke-width="1.8" stroke-linecap="round"/>'
-            return '<svg width="' + str(W) + '" height="' + str(H) + '" style="vertical-align:middle">' + segs + '</svg>'
+                h_s = max(3, int((c_s - mn_s) / rng_s * 18))
+                col_s = '#1D9E75' if i_s == 0 or c_s >= cls_s[i_s-1] else '#f87171'
+                parts_s.append('<span style="display:inline-block;width:3px;height:' + str(h_s) + 'px;background:' + col_s + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
+            return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
 
         if lst:
             # Render tabel SP sebagai HTML — supaya sparkline bisa inline
@@ -1644,17 +1639,12 @@ def main():
                 if len(cls) >= 3:
                     mn, mx = min(cls), max(cls)
                     rng = mx - mn if mx > mn else 1
-                    W2, H2, PAD2 = 64, 24, 2
-                    pts2 = []
+                    spark_parts = []
                     for i2, c in enumerate(cls):
-                        x2 = PAD2 + (i2 / (len(cls)-1)) * (W2 - PAD2*2)
-                        y2 = H2 - PAD2 - ((c - mn) / rng) * (H2 - PAD2*2)
-                        pts2.append((x2, y2, c))
-                    segs2 = ''
-                    for i2 in range(1, len(pts2)):
-                        col2 = '#1D9E75' if pts2[i2][2] >= pts2[i2-1][2] else '#EF9F27'
-                        segs2 += '<line x1="' + str(round(pts2[i2-1][0],1)) + '" y1="' + str(round(pts2[i2-1][1],1)) + '" x2="' + str(round(pts2[i2][0],1)) + '" y2="' + str(round(pts2[i2][1],1)) + '" stroke="' + col2 + '" stroke-width="1.8" stroke-linecap="round"/>'
-                    spark = '<svg width="' + str(W2) + '" height="' + str(H2) + '" style="vertical-align:middle">' + segs2 + '</svg>'
+                        h2 = max(3, int((c - mn) / rng * 18))
+                        col2 = '#1D9E75' if i2 == 0 or c >= cls[i2-1] else '#f87171'
+                        spark_parts.append('<span style="display:inline-block;width:3px;height:' + str(h2) + 'px;background:' + col2 + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
+                    spark = '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(spark_parts) + '</div>'
                 else:
                     spark = '—'
 
