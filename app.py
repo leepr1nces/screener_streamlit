@@ -1099,20 +1099,12 @@ def main():
     c4.metric("🏢 Saham",  f"{len(data_today)} saham")
 
     # ── Summary chips ─────────────────────────────────────────────────────────
-    cols = st.columns(12)
+    cols = st.columns(4)
     chips = [
-        ("BOA ✅",    len([r for r in boa_full   if r['in_wl']]), "#60a5fa"),
-        ("~BOA",     len([r for r in boa_near   if r['in_wl']]), "#93c5fd"),
-        ("P1",       len([r for r in p1_list    if r['in_wl']]), "#f472b6"),
-        ("P3",       len([r for r in p3_list    if r['in_wl']]), "#fbbf24"),
-        ("OLseq",    len([r for r in ol_list    if r['in_wl']]), "#fb923c"),
-        ("SV",       len([r for r in sv_list    if r['in_wl']]), "#2dd4bf"),
-        ("Alert",    len([r for r in alert_list  if r['in_wl']]), "#f87171"),
-        ("Bersih",   len([r for r in clean      if r['in_wl']]), "#4ade80"),
-        ("Stockpick",len([r for r in sp_list    if r['in_wl']]), "#a78bfa"),
-        ("BOS",      len([r for r in bos_list   if r['in_wl'] and r['entry']!='Tunggu']), "#f59e0b"),
-        ("BOH",      len([r for r in boh_list   if r['in_wl']]), "#06b6d4"),
-        ("TTx🔔",    len([r for r in ttx_list   if r['priority']==0]), "#e879f9"),
+        ("🚀 BOS",      len([r for r in bos_list   if r['in_wl'] and r['entry']!='Tunggu']), "#f59e0b"),
+        ("📈 BOH",      len([r for r in boh_list   if r['in_wl']]), "#06b6d4"),
+        ("⏰ TTx🔔",    len([r for r in ttx_list   if r['priority']==0]), "#e879f9"),
+        ("🛒 Stockpick",len([r for r in sp_list    if r['in_wl']]), "#a78bfa"),
     ]
     for col,(label,val,color) in zip(cols,chips):
         col.markdown(f"""<div style="background:#1e1e2e;border:1px solid #333;border-radius:8px;
