@@ -1256,12 +1256,22 @@ def main():
     # Tab Auto StockPick
     with tabs[11]:
         st.markdown(f"**⭐ Auto StockPick — Kompilasi Terbaik Semua Pola | WL Only | {target}**")
-        st.caption("Saham yang muncul di ≥2 pola diprioritaskan. Sorted: jumlah pola → Chg% → H/P%")
+        st.caption("Filter: ≥3 pola ATAU 2 pola + spike ≥5% dalam 10H | Sorted: Chg% → H/P% → N Pola")
         if auto_sp:
+            # Bangun sparkline data (close 14 hari terakhir per saham)
+            def get_sparkline(code):
+                bars = all_ohlcv.get(code, [])
+                closes = [b['C'] for b in bars[-14:] if b.get('C')]
+                return closes if len(closes) >= 3 else []
+
             rows = []
+            spark_data = {}
             for r in auto_sp:
+                closes = get_sparkline(r['code'])
+                spark_data[r['code']] = closes
                 rows.append({
                     'Code': r['code'],
+                    'Trend (14H)': closes,
                     'Close': r['close'],
                     'Chg%': r['chg'],
                     'H/P%': r['hvp'],
@@ -1269,17 +1279,32 @@ def main():
                     'N Pola': len(r['pola']),
                     'Filter': r.get('filter',''),
                 })
+
             df_sp = pd.DataFrame(rows)
+
+            # Gunakan st.dataframe dengan column_config untuk sparkline
             st.dataframe(
-                df_sp.style
-                .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
-                          else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
-                     subset=['Chg%','H/P%'])
-                .format({'Chg%':'{:+.2f}','H/P%':'{:+.2f}'})
-                .apply(lambda x: ['background:#1e3a2f' if x['N Pola']>=2 else '' for _ in x], axis=1),
+                df_sp,
+                column_config={
+                    'Code': st.column_config.TextColumn('Code', width='small'),
+                    'Trend (14H)': st.column_config.LineChartColumn(
+                        'Trend 14H',
+                        width='medium',
+                        y_min=None,
+                        y_max=None,
+                    ),
+                    'Close': st.column_config.NumberColumn('Close', format='%d'),
+                    'Chg%': st.column_config.NumberColumn('Chg%', format='%+.2f%%'),
+                    'H/P%': st.column_config.NumberColumn('H/P%', format='%+.2f%%'),
+                    'Pola': st.column_config.TextColumn('Pola', width='large'),
+                    'N Pola': st.column_config.NumberColumn('N', width='small'),
+                    'Filter': st.column_config.TextColumn('Filter', width='small'),
+                },
                 use_container_width=True,
-                height=500
+                height=500,
+                hide_index=True,
             )
+
             # Summary chips per pola
             st.divider()
             st.markdown("**Distribusi pola:**")
@@ -1287,9 +1312,9 @@ def main():
             for r in auto_sp:
                 for p in r['pola']:
                     all_polas[p] = all_polas.get(p, 0) + 1
-            cols = st.columns(len(all_polas))
+            cols = st.columns(min(len(all_polas), 8))
             for i, (p, n) in enumerate(sorted(all_polas.items(), key=lambda x: -x[1])):
-                cols[i].metric(p, n)
+                cols[i % len(cols)].metric(p, n)
         else:
             st.info("Belum ada sinyal Auto StockPick hari ini.")
 
