@@ -728,7 +728,7 @@ def load_from_folder(folder="data"):
 # ══════════════════════════════════════════════════════════════════════════════
 # AUTO STOCKPICK RANGKUMAN — Kompilasi terbaik dari semua pola
 # ══════════════════════════════════════════════════════════════════════════════
-def auto_stockpick(boa_list, p1_list, p3_list, ol_list, sv_list, alert_list,
+def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list,
                    sp_list, bos_list, boh_list, ttx_list):
     """Kompilasi saham terbaik dari semua pola, sorted Chg% desc lalu H/P% desc."""
     picks = {}
@@ -750,7 +750,8 @@ def auto_stockpick(boa_list, p1_list, p3_list, ol_list, sv_list, alert_list,
             picks[code]['hvp'] = hvp
 
     # BOA full (score tinggi)
-    add([r for r in boa_list if r.get('boa_full')], 'BOA✅')
+    add(boa_full, 'BOA✅')
+    add(boa_near, 'BOA~')
     # P1 entry
     add([r for r in p1_list if r.get('signal') == 'Kering'], 'P1')
     # P3 signal B
@@ -869,7 +870,7 @@ def main():
         bos_list  = scan_bos(all_ohlcv, avg_vols, target)
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
-        auto_sp   = auto_stockpick(boa_list, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list)
+        auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list)
 
     # ── Info bar ──────────────────────────────────────────────────────────────
     c1,c2,c3,c4 = st.columns(4)
