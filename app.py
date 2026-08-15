@@ -1169,11 +1169,44 @@ def main():
             if gain > -3:   return '#EF9F27','#412402'
             return '#F0997B','#4A1B0C'
 
+        # Kumpulkan pola aktif per saham hari ini
+        active_pola = {}
+        def add_pola(lst, pola_name, key='in_wl'):
+            for r in lst:
+                if not r.get('in_wl'): continue
+                c = r['code']
+                if c not in active_pola: active_pola[c] = []
+                if pola_name not in active_pola[c]:
+                    active_pola[c].append(pola_name)
+        add_pola(boa_full, 'BOA✅')
+        add_pola(boa_near, 'BOA~')
+        add_pola([r for r in bos_list if r.get('entry','')!='Tunggu'], 'BOS')
+        add_pola([r for r in boh_list if r.get('vol_kering')], 'BOH')
+        add_pola([r for r in ttx_list if r.get('priority')==0], 'TTx🔔')
+        add_pola([r for r in p1_list if r.get('signal')=='Kering'], 'P1')
+        add_pola(sp_list, 'SP')
+
+        POLA_COLORS = {
+            'BOA✅': '#CECBF6', 'BOA~': '#CECBF6',
+            'BOS': '#9FE1CB', 'BOH': '#F5C4B3',
+            'TTx🔔': '#FAC775', 'P1': '#F4C0D1', 'SP': '#B5D4F4',
+        }
+
         hm_hdr_parts = []
         for code, info in sorted(heatmap_kandidat.items(), key=lambda x: -x[1]['gain']):
             bg, fg = hdr_style(info['gain'])
             sign = '+' if info['gain'] > 0 else ''
             sign_t = '+' if info['chg_today'] > 0 else ''
+
+            # Badge pola
+            polas = active_pola.get(code, [])
+            badge_html = ''
+            if polas:
+                for p in polas:
+                    pc = POLA_COLORS.get(p, '#D3D1C7')
+                    badge_html += '<span style="background:' + pc + ';color:#2C2C2A;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px;">' + p + '</span>'
+                badge_html = '<div style="margin-top:4px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px;">' + badge_html + '</div>'
+
             hm_hdr_parts.append(
                 '<div style="background:' + bg + ';color:' + fg + ';border:1px solid rgba(128,128,128,0.2);'
                 'border-radius:8px;padding:6px 10px;min-width:72px;text-align:center;cursor:pointer;">'
@@ -1181,6 +1214,7 @@ def main():
                 '<div style="font-size:11px;font-weight:500;">' + sign + str(info['gain']) + '%</div>'
                 '<div style="font-size:10px;opacity:0.8;">T-' + str(info['day_ago']) + ' @' + str(info['entry_close']) + '</div>'
                 '<div style="font-size:10px;opacity:0.75;">hari ini ' + sign_t + str(info['chg_today']) + '%</div>'
+                + badge_html +
                 '</div>'
             )
         hm_hdr_html = '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + ''.join(hm_hdr_parts) + '</div>'
