@@ -1534,6 +1534,55 @@ def main():
             )
             st.html(sp_tbl_html)
 
+
+            # ── TP / SL Generator ────────────────────────────────────
+            st.divider()
+            st.markdown("#### 🌟 Miracle Cuan — Generate Signal Telegram")
+
+            sp_codes = [r['code'] for r in lst]
+            selected_code = st.selectbox(
+                "Pilih saham:",
+                options=sp_codes,
+                key='tp_sl_select'
+            )
+
+            sel_r = next((r for r in lst if r['code'] == selected_code), None)
+            if sel_r:
+                entry_price = sel_r['close']
+                col_tp, col_sl = st.columns(2)
+                with col_tp:
+                    tp_pct = st.slider("Take Profit %", min_value=1.0, max_value=30.0,
+                                       value=8.0, step=0.5, key='tp_slider')
+                    tp_price = round(entry_price * (1 + tp_pct/100))
+                    st.markdown(f"**TP: {tp_price:,}** (+{tp_pct:.1f}%)")
+                with col_sl:
+                    sl_pct = st.slider("Stop Loss %", min_value=1.0, max_value=15.0,
+                                       value=4.0, step=0.5, key='sl_slider')
+                    sl_price = round(entry_price * (1 - sl_pct/100))
+                    st.markdown(f"**SL: {sl_price:,}** (-{sl_pct:.1f}%)")
+
+                rr = round(tp_pct / sl_pct, 1)
+
+                # Preview pesan
+                from datetime import date
+                tgl = date.today().strftime('%d %b %Y')
+                pesan = f"""🌟 MIRACLE CUAN 🌟
+━━━━━━━━━━━━━━━━━━━━
+
+📌 {selected_code}
+📅 {tgl}
+
+💰 Entry  :  {entry_price:,}
+🎯 TP      :  {tp_price:,}  (+{tp_pct:.1f}%)
+🛑 SL      :  {sl_price:,}  (-{sl_pct:.1f}%)
+⚖️ R/R     :  1 : {rr}
+
+⚠️ DYOR — bukan rekomendasi investasi."""
+
+                with st.expander("Preview & Salin Pesan", expanded=True):
+                    st.code(pesan, language=None)
+                    st.caption("Salin teks di atas lalu kirim ke Telegram.")
+
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
