@@ -1549,23 +1549,63 @@ def main():
             sel_r = next((r for r in lst if r['code'] == selected_code), None)
             if sel_r:
                 entry_price = sel_r['close']
-                col_tp, col_sl = st.columns(2)
-                with col_tp:
-                    tp_pct = st.slider("Take Profit %", min_value=1.0, max_value=30.0,
-                                       value=8.0, step=0.5, key='tp_slider')
-                    tp_price = round(entry_price * (1 + tp_pct/100))
-                    st.markdown(f"**TP: {tp_price:,}** (+{tp_pct:.1f}%)")
-                with col_sl:
-                    sl_pct = st.slider("Stop Loss %", min_value=1.0, max_value=15.0,
-                                       value=4.0, step=0.5, key='sl_slider')
-                    sl_price = round(entry_price * (1 - sl_pct/100))
-                    st.markdown(f"**SL: {sl_price:,}** (-{sl_pct:.1f}%)")
+                from datetime import date
 
-                rr = round(tp_pct / sl_pct, 1)
+                # ── Take Profit ──
+                st.markdown("**Take Profit**")
+                col_tp1, col_tp2 = st.columns([3,1])
+                with col_tp1:
+                    tp_pct = st.slider("TP %", min_value=1.0, max_value=30.0,
+                                       value=st.session_state.get('tp_pct_val', 8.0),
+                                       step=0.5, key='tp_slider',
+                                       label_visibility='collapsed')
+                with col_tp2:
+                    tp_manual = st.number_input("Harga TP", min_value=1, 
+                                                value=round(entry_price * (1 + tp_pct/100)),
+                                                step=1, key='tp_manual',
+                                                label_visibility='collapsed')
+                # Sinkron: kalau manual diubah, hitung ulang pct
+                if tp_manual != round(entry_price * (1 + tp_pct/100)):
+                    tp_pct = round((tp_manual - entry_price) / entry_price * 100, 1)
+                    tp_price = tp_manual
+                else:
+                    tp_price = round(entry_price * (1 + tp_pct/100))
+                st.markdown(f"🎯 **{tp_price:,}** &nbsp; +{tp_pct:.1f}%")
+
+                st.markdown("**Stop Loss**")
+                # Tombol NONE
+                sl_none = st.checkbox("NONE (tanpa SL)", value=False, key='sl_none_check')
+
+                sl_pct = 4.0
+                sl_price = None
+                if not sl_none:
+                    col_sl1, col_sl2 = st.columns([3,1])
+                    with col_sl1:
+                        sl_pct = st.slider("SL %", min_value=1.0, max_value=15.0,
+                                           value=4.0, step=0.5, key='sl_slider',
+                                           label_visibility='collapsed')
+                    with col_sl2:
+                        sl_manual = st.number_input("Harga SL", min_value=1,
+                                                    value=round(entry_price * (1 - sl_pct/100)),
+                                                    step=1, key='sl_manual',
+                                                    label_visibility='collapsed')
+                    if sl_manual != round(entry_price * (1 - sl_pct/100)):
+                        sl_pct = round((entry_price - sl_manual) / entry_price * 100, 1)
+                        sl_price = sl_manual
+                    else:
+                        sl_price = round(entry_price * (1 - sl_pct/100))
+                    st.markdown(f"🛑 **{sl_price:,}** &nbsp; -{sl_pct:.1f}%")
+
+                # R/R
+                if not sl_none and sl_pct > 0:
+                    rr = round(tp_pct / sl_pct, 1)
+                    st.markdown(f"⚖️ **R/R: 1 : {rr}**")
 
                 # Preview pesan
-                from datetime import date
                 tgl = date.today().strftime('%d %b %Y')
+                sl_line = f"🛑 SL      :  {sl_price:,}  (-{sl_pct:.1f}%)" if not sl_none else "🛑 SL      :  NONE"
+                rr_line = f"⚖️ R/R     :  1 : {rr}" if not sl_none else ""
+
                 pesan = f"""🌟 MIRACLE CUAN 🌟
 ━━━━━━━━━━━━━━━━━━━━
 
@@ -1574,10 +1614,12 @@ def main():
 
 💰 Entry  :  {entry_price:,}
 🎯 TP      :  {tp_price:,}  (+{tp_pct:.1f}%)
-🛑 SL      :  {sl_price:,}  (-{sl_pct:.1f}%)
-⚖️ R/R     :  1 : {rr}
+{sl_line}
+{rr_line}
 
 ⚠️ DYOR — bukan rekomendasi investasi."""
+
+                pesan = '\n'.join(line for line in pesan.split('\n') if line.strip() or line == '')
 
                 with st.expander("Preview & Salin Pesan", expanded=True):
                     st.code(pesan, language=None)
