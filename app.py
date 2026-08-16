@@ -1123,9 +1123,9 @@ def main():
             _sp_data_mc = ','.join([f"{r['code']}:{r['close']}" for r in _sp_wl_mc[:30]])
             _mc_base = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
             _ohlcv_parts_mc = []
-            for _r in _sp_wl_mc[:20]:
+            for _r in _sp_wl_mc[:10]:
                 _c = _r['code']
-                _b = all_ohlcv.get(_c, [])[-21:]
+                _b = all_ohlcv.get(_c, [])[-14:]
                 if len(_b) < 3: continue
                 _bs = '|'.join([
                     f"{b['date'][5:]}:{int(b.get('O') or b.get('C',0))}:{int(b.get('H',0))}:{int(b.get('L') or b.get('C',0))}:{int(b.get('C',0))}:{int(b.get('V',0))}"
