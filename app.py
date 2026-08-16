@@ -825,7 +825,7 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
 # ══════════════════════════════════════════════════════════════════════════════
 # CANDLESTICK CHART
 # ══════════════════════════════════════════════════════════════════════════════
-def render_candlestick(code, all_ohlcv, n_days=30):
+def render_candlestick(code, all_ohlcv, n_days=30, chart_key='chart'):
     """Render candlestick chart + volume bar untuk saham tertentu.
     Menggunakan index kategorikal agar tidak ada gap hari libur.
     """
@@ -908,7 +908,7 @@ def render_candlestick(code, all_ohlcv, n_days=30):
     )
     fig.update_yaxes(gridcolor='#334155', showgrid=True)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=chart_key)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1851,7 +1851,7 @@ def main():
             col_sel, col_day = st.columns([3,1])
             selected = col_sel.selectbox('📊 Chart:', options=codes_available, index=0, key='autosp_chart_select')
             n_days = col_day.selectbox('Periode:', options=[14,21,30], index=2, key='autosp_chart_days')
-            render_candlestick(selected, all_ohlcv, n_days=n_days)
+            render_candlestick(selected, all_ohlcv, n_days=n_days, chart_key='autosp_chart_'+selected)
 
             # Distribusi pola
             st.divider()
@@ -1922,7 +1922,7 @@ def main():
             tr_codes = df_show['Code'].unique().tolist()
             if tr_codes:
                 sel_tr = st.selectbox('📊 Chart saham:', tr_codes, key='tr_chart_select')
-                render_candlestick(sel_tr, all_ohlcv, n_days=30)
+                render_candlestick(sel_tr, all_ohlcv, n_days=30, chart_key='tr_chart2_'+sel_tr)
         else:
             st.info("Belum ada data track record. Upload lebih banyak file screener ke folder data/.")
 
