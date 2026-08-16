@@ -1540,91 +1540,229 @@ def main():
             st.markdown("#### 🌟 Miracle Cuan — Generate Signal Telegram")
 
             sp_codes = [r['code'] for r in lst]
-            selected_code = st.selectbox(
-                "Pilih saham:",
-                options=sp_codes,
-                key='tp_sl_select'
-            )
-
+            selected_code = st.selectbox("Pilih saham:", options=sp_codes, key='tp_sl_select')
             sel_r = next((r for r in lst if r['code'] == selected_code), None)
+
             if sel_r:
                 entry_price = sel_r['close']
                 from datetime import date
 
-                # ── Take Profit ──
-                st.markdown("**Take Profit**")
-                col_tp1, col_tp2 = st.columns([3,1])
-                with col_tp1:
-                    tp_pct = st.slider("TP %", min_value=1.0, max_value=30.0,
-                                       value=st.session_state.get('tp_pct_val', 8.0),
-                                       step=0.5, key='tp_slider',
-                                       label_visibility='collapsed')
-                with col_tp2:
-                    tp_manual = st.number_input("Harga TP", min_value=1, 
-                                                value=round(entry_price * (1 + tp_pct/100)),
-                                                step=1, key='tp_manual',
-                                                label_visibility='collapsed')
-                # Sinkron: kalau manual diubah, hitung ulang pct
-                if tp_manual != round(entry_price * (1 + tp_pct/100)):
-                    tp_pct = round((tp_manual - entry_price) / entry_price * 100, 1)
-                    tp_price = tp_manual
-                else:
-                    tp_price = round(entry_price * (1 + tp_pct/100))
-                st.markdown(f"🎯 **{tp_price:,}** &nbsp; +{tp_pct:.1f}%")
+                # Render komponen via HTML + JS interaktif
+                tpsl_html = """
+<style>
+.mc-wrap{font-family:sans-serif;color:#e2e8f0}
+.mc-entry{background:#1e293b;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;margin-bottom:14px;font-size:13px}
+.mc-label{color:#94a3b8}
+.mc-row{margin-bottom:14px}
+.mc-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.mc-row-title{font-size:12px;font-weight:600}
+.mc-modes{display:flex;gap:4px}
+.mc-btn{padding:2px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:0.5px solid #334155;background:#1e293b;color:#94a3b8}
+.mc-btn.active-tp{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.mc-btn.active-sl{background:#E24B4A;color:#fff;border-color:#E24B4A}
+.mc-slider{width:100%;margin-bottom:4px;accent-color:#1D9E75}
+.mc-slider-sl{accent-color:#E24B4A}
+.mc-result{display:flex;justify-content:space-between;margin-top:4px}
+.mc-pct{font-size:12px;font-weight:500}
+.mc-pct-tp{color:#1D9E75}.mc-pct-sl{color:#E24B4A}
+.mc-price{font-size:16px;font-weight:600}
+.mc-price-tp{color:#1D9E75}.mc-price-sl{color:#E24B4A}
+.mc-input{width:100%;padding:6px 10px;border-radius:6px;border:0.5px solid #334155;background:#1e293b;color:#e2e8f0;font-size:14px;box-sizing:border-box}
+.mc-rr{background:#1e293b;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;margin-bottom:14px;font-size:13px}
+.mc-rr-val{font-size:16px;font-weight:600;color:#60a5fa}
+.mc-gen{width:100%;padding:9px;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer;background:#1D9E75;color:#fff;border:none}
+.tg-box{background:#17212b;border-radius:10px;padding:14px;margin-top:14px}
+.tg-pre{font-family:monospace;font-size:12px;color:#e8e8e8;line-height:1.8;white-space:pre-wrap;margin-bottom:10px}
+.tg-copy{width:100%;padding:7px;font-size:12px;border-radius:7px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff}
+</style>
 
-                st.markdown("**Stop Loss**")
-                # Tombol NONE
-                sl_none = st.checkbox("NONE (tanpa SL)", value=False, key='sl_none_check')
+<div class="mc-wrap">
+  <div class="mc-entry">
+    <span class="mc-label">Entry</span>
+    <span style="font-size:14px;font-weight:600">""" + f"{entry_price:,}" + """</span>
+  </div>
 
-                sl_pct = 4.0
-                sl_price = None
-                if not sl_none:
-                    col_sl1, col_sl2 = st.columns([3,1])
-                    with col_sl1:
-                        sl_pct = st.slider("SL %", min_value=1.0, max_value=15.0,
-                                           value=4.0, step=0.5, key='sl_slider',
-                                           label_visibility='collapsed')
-                    with col_sl2:
-                        sl_manual = st.number_input("Harga SL", min_value=1,
-                                                    value=round(entry_price * (1 - sl_pct/100)),
-                                                    step=1, key='sl_manual',
-                                                    label_visibility='collapsed')
-                    if sl_manual != round(entry_price * (1 - sl_pct/100)):
-                        sl_pct = round((entry_price - sl_manual) / entry_price * 100, 1)
-                        sl_price = sl_manual
-                    else:
-                        sl_price = round(entry_price * (1 - sl_pct/100))
-                    st.markdown(f"🛑 **{sl_price:,}** &nbsp; -{sl_pct:.1f}%")
+  <!-- TP -->
+  <div class="mc-row">
+    <div class="mc-row-head">
+      <span class="mc-row-title">Take Profit</span>
+      <div class="mc-modes">
+        <button class="mc-btn active-tp" onclick="setMode('tp','pct')" id="tp-b-pct">%</button>
+        <button class="mc-btn" onclick="setMode('tp','price')" id="tp-b-price">Harga</button>
+      </div>
+    </div>
+    <div id="tp-pct-mode">
+      <input type="range" class="mc-slider" id="tp-slider" min="1" max="30" step="0.5" value="8" oninput="syncTP()">
+      <div class="mc-result">
+        <span class="mc-pct mc-pct-tp" id="tp-pct-lbl">+8.0%</span>
+        <span class="mc-price mc-price-tp" id="tp-price-lbl"></span>
+      </div>
+    </div>
+    <div id="tp-price-mode" style="display:none">
+      <input type="number" class="mc-input" id="tp-price-inp" min="1" step="1" oninput="syncTPfromPrice()">
+      <div class="mc-result">
+        <span class="mc-pct mc-pct-tp" id="tp-pct-lbl2"></span>
+        <span style="font-size:11px;color:#64748b">dari entry</span>
+      </div>
+    </div>
+  </div>
 
-                # R/R
-                if not sl_none and sl_pct > 0:
-                    rr = round(tp_pct / sl_pct, 1)
-                    st.markdown(f"⚖️ **R/R: 1 : {rr}**")
+  <!-- SL -->
+  <div class="mc-row">
+    <div class="mc-row-head">
+      <span class="mc-row-title">Stop Loss</span>
+      <div class="mc-modes">
+        <button class="mc-btn active-sl" onclick="setMode('sl','pct')" id="sl-b-pct">%</button>
+        <button class="mc-btn" onclick="setMode('sl','price')" id="sl-b-price">Harga</button>
+        <button class="mc-btn" onclick="setMode('sl','none')" id="sl-b-none">NONE</button>
+      </div>
+    </div>
+    <div id="sl-pct-mode">
+      <input type="range" class="mc-slider mc-slider-sl" id="sl-slider" min="1" max="15" step="0.5" value="4" oninput="syncSL()">
+      <div class="mc-result">
+        <span class="mc-pct mc-pct-sl" id="sl-pct-lbl">-4.0%</span>
+        <span class="mc-price mc-price-sl" id="sl-price-lbl"></span>
+      </div>
+    </div>
+    <div id="sl-price-mode" style="display:none">
+      <input type="number" class="mc-input" id="sl-price-inp" min="1" step="1" oninput="syncSLfromPrice()">
+      <div class="mc-result">
+        <span class="mc-pct mc-pct-sl" id="sl-pct-lbl2"></span>
+        <span style="font-size:11px;color:#64748b">dari entry</span>
+      </div>
+    </div>
+    <div id="sl-none-mode" style="display:none;font-size:12px;color:#64748b;padding:4px 0">Tanpa Stop Loss</div>
+  </div>
 
-                # Preview pesan
-                tgl = date.today().strftime('%d %b %Y')
-                sl_line = f"🛑 SL      :  {sl_price:,}  (-{sl_pct:.1f}%)" if not sl_none else "🛑 SL      :  NONE"
-                rr_line = f"⚖️ R/R     :  1 : {rr}" if not sl_none else ""
+  <div class="mc-rr" id="rr-box">
+    <span class="mc-label">Risk / Reward</span>
+    <span class="mc-rr-val" id="rr-val">1 : 2.0</span>
+  </div>
 
-                pesan = f"""🌟 MIRACLE CUAN 🌟
-━━━━━━━━━━━━━━━━━━━━
+  <button class="mc-gen" onclick="generateMsg()">Generate pesan Telegram</button>
 
-📌 {selected_code}
-📅 {tgl}
+  <div class="tg-box" id="tg-box" style="display:none">
+    <div class="tg-pre" id="tg-pre"></div>
+    <button class="tg-copy" onclick="copyMsg()">Salin pesan</button>
+  </div>
+</div>
 
-💰 Entry  :  {entry_price:,}
-🎯 TP      :  {tp_price:,}  (+{tp_pct:.1f}%)
-{sl_line}
-{rr_line}
+<script>
+const ENTRY = """ + str(entry_price) + """;
+const CODE  = '""" + selected_code + """';
+let tpMode='pct', slMode='pct';
 
-⚠️ DYOR — bukan rekomendasi investasi."""
+function fmt(n){ return n.toLocaleString('id-ID'); }
 
-                pesan = '\n'.join(line for line in pesan.split('\n') if line.strip() or line == '')
+function init(){
+  document.getElementById('tp-price-inp').value = Math.round(ENTRY*1.08);
+  document.getElementById('sl-price-inp').value = Math.round(ENTRY*0.96);
+  syncTP(); syncSL();
+}
 
-                with st.expander("Preview & Salin Pesan", expanded=True):
-                    st.code(pesan, language=None)
-                    st.caption("Salin teks di atas lalu kirim ke Telegram.")
+function setMode(which, mode){
+  if(which==='tp'){
+    tpMode=mode;
+    document.getElementById('tp-pct-mode').style.display  = mode==='pct'   ?'block':'none';
+    document.getElementById('tp-price-mode').style.display= mode==='price' ?'block':'none';
+    ['tp-b-pct','tp-b-price'].forEach(id=>{
+      const on=(id==='tp-b-pct'&&mode==='pct')||(id==='tp-b-price'&&mode==='price');
+      const b=document.getElementById(id);
+      b.className='mc-btn'+(on?' active-tp':'');
+    });
+  } else {
+    slMode=mode;
+    document.getElementById('sl-pct-mode').style.display  = mode==='pct'   ?'block':'none';
+    document.getElementById('sl-price-mode').style.display= mode==='price' ?'block':'none';
+    document.getElementById('sl-none-mode').style.display = mode==='none'  ?'block':'none';
+    document.getElementById('rr-box').style.display       = mode==='none'  ?'none' :'flex';
+    ['sl-b-pct','sl-b-price','sl-b-none'].forEach(id=>{
+      const on=(id==='sl-b-pct'&&mode==='pct')||(id==='sl-b-price'&&mode==='price')||(id==='sl-b-none'&&mode==='none');
+      const b=document.getElementById(id);
+      b.className='mc-btn'+(on?' active-sl':'');
+    });
+  }
+}
 
+function syncTP(){
+  const pct=parseFloat(document.getElementById('tp-slider').value);
+  const price=Math.round(ENTRY*(1+pct/100));
+  document.getElementById('tp-pct-lbl').textContent='+'+pct.toFixed(1)+'%';
+  document.getElementById('tp-price-lbl').textContent=fmt(price);
+  document.getElementById('tp-price-inp').value=price;
+  document.getElementById('tp-pct-lbl2').textContent='+'+pct.toFixed(1)+'%';
+  updateRR();
+}
+function syncTPfromPrice(){
+  const price=parseInt(document.getElementById('tp-price-inp').value)||ENTRY;
+  const pct=((price-ENTRY)/ENTRY*100);
+  document.getElementById('tp-pct-lbl2').textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';
+  document.getElementById('tp-slider').value=Math.min(30,Math.max(1,pct));
+  document.getElementById('tp-pct-lbl').textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';
+  document.getElementById('tp-price-lbl').textContent=fmt(price);
+  updateRR();
+}
+function syncSL(){
+  const pct=parseFloat(document.getElementById('sl-slider').value);
+  const price=Math.round(ENTRY*(1-pct/100));
+  document.getElementById('sl-pct-lbl').textContent='-'+pct.toFixed(1)+'%';
+  document.getElementById('sl-price-lbl').textContent=fmt(price);
+  document.getElementById('sl-price-inp').value=price;
+  document.getElementById('sl-pct-lbl2').textContent='-'+pct.toFixed(1)+'%';
+  updateRR();
+}
+function syncSLfromPrice(){
+  const price=parseInt(document.getElementById('sl-price-inp').value)||ENTRY;
+  const pct=((ENTRY-price)/ENTRY*100);
+  document.getElementById('sl-pct-lbl2').textContent='-'+pct.toFixed(1)+'%';
+  document.getElementById('sl-slider').value=Math.min(15,Math.max(1,pct));
+  document.getElementById('sl-pct-lbl').textContent='-'+pct.toFixed(1)+'%';
+  document.getElementById('sl-price-lbl').textContent=fmt(price);
+  updateRR();
+}
+function updateRR(){
+  if(slMode==='none') return;
+  const tp=parseFloat(document.getElementById('tp-slider').value);
+  const sl=parseFloat(document.getElementById('sl-slider').value);
+  document.getElementById('rr-val').textContent='1 : '+(tp/sl).toFixed(1);
+}
+
+function getTP(){
+  const price=parseInt(document.getElementById('tp-price-inp').value)||Math.round(ENTRY*1.08);
+  const pct=((price-ENTRY)/ENTRY*100).toFixed(1);
+  return {price, pct};
+}
+function getSL(){
+  if(slMode==='none') return null;
+  const price=parseInt(document.getElementById('sl-price-inp').value)||Math.round(ENTRY*0.96);
+  const pct=((ENTRY-price)/ENTRY*100).toFixed(1);
+  return {price, pct};
+}
+
+function generateMsg(){
+  const tp=getTP(); const sl=getSL();
+  const now=new Date();
+  const months=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+  const dateStr=now.getDate()+' '+months[now.getMonth()]+' '+now.getFullYear();
+  let slLine = sl ? '🛑 SL      :  '+fmt(sl.price)+'  (-'+sl.pct+'%)' : '🛑 SL      :  NONE';
+  let rrLine  = sl ? '\n⚖️ R/R     :  1 : '+(parseFloat(tp.pct)/parseFloat(sl.pct)).toFixed(1) : '';
+  const msg = '🌟 MIRACLE CUAN 🌟\n━━━━━━━━━━━━━━━━━━━━\n\n📌 '+CODE+'\n📅 '+dateStr+'\n\n💰 Entry  :  '+fmt(ENTRY)+'\n🎯 TP      :  '+fmt(tp.price)+'  (+'+tp.pct+'%)\n'+slLine+rrLine+'\n\n⚠️ DYOR — bukan rekomendasi investasi.';
+  document.getElementById('tg-pre').textContent=msg;
+  document.getElementById('tg-box').style.display='block';
+}
+
+function copyMsg(){
+  const txt=document.getElementById('tg-pre').textContent;
+  navigator.clipboard.writeText(txt).catch(()=>{});
+  const btn=document.querySelector('.tg-copy');
+  btn.textContent='Tersalin! ✓';
+  setTimeout(()=>{btn.textContent='Salin pesan'},2000);
+}
+
+init();
+</script>
+"""
+                st.html(tpsl_html)
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
