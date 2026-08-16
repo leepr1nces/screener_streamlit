@@ -1037,8 +1037,16 @@ def main():
         st.divider()
         show_only_wl = st.toggle("★ Hanya WL", value=True)
         st.divider()
-        miracle_url = st.session_state.get('miracle_url', 'https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html')
-        st.link_button("🌟 Miracle Cuan", miracle_url, use_container_width=True)
+        # Miracle Cuan URL — ambil dari session atau default
+        _mc_url = st.session_state.get('miracle_url', '')
+        if not _mc_url:
+            # Belum ada data scan — buka tanpa params (mode manual tersedia)
+            _mc_url = 'https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html'
+        st.link_button("🌟 Miracle Cuan", _mc_url, use_container_width=True)
+        if st.session_state.get('miracle_url'):
+            st.caption("Data SP hari ini sudah terisi")
+        else:
+            st.caption("Buka tab Stockpick dulu untuk data SP")
         st.divider()
         st.markdown("**Pola:**")
         col1,col2 = st.columns(2)
@@ -1104,28 +1112,29 @@ def main():
                                 p1_list, p3_list, boa_full, boa_near, sv_list)
         sp_list = scan_stockpick(all_ohlcv, avg_vols, target)
 
-        # ── Build Miracle Cuan URL dengan OHLCV 21H ──────────────────
-        _sp_wl = [r for r in sp_list if r.get('in_wl')]
-        _sp_data = ','.join([f"{r['code']}:{r['close']}" for r in _sp_wl[:30]])
-        _miracle_base = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
-        _ohlcv_parts = []
-        for _r in _sp_wl[:20]:
-            _code = _r['code']
-            _bars = all_ohlcv.get(_code, [])[-21:]
-            if len(_bars) < 3: continue
-            _bar_str = '|'.join([
-                f"{b['date'][5:]}:{int(b.get('O') or b.get('C',0))}:{int(b.get('H',0))}:{int(b.get('L') or b.get('C',0))}:{int(b.get('C',0))}:{int(b.get('V',0))}"
-                for b in _bars if b.get('C')
-            ])
-            if _bar_str:
-                _ohlcv_parts.append(f"{_code}~{_bar_str}")
-        _ohlcv_str = ';'.join(_ohlcv_parts)
-        st.session_state['miracle_url'] = f"{_miracle_base}?data={_sp_data}&ohlcv={_ohlcv_str}"
-
         bos_list  = scan_bos(all_ohlcv, avg_vols, target)
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
         auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list, all_ohlcv, target)
+
+        # ── Build Miracle Cuan URL dengan OHLCV 21H ──────────────────
+        try:
+            _sp_wl_mc = [r for r in sp_list if r.get('in_wl')]
+            _sp_data_mc = ','.join([f"{r['code']}:{r['close']}" for r in _sp_wl_mc[:30]])
+            _mc_base = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
+            _ohlcv_parts_mc = []
+            for _r in _sp_wl_mc[:20]:
+                _c = _r['code']
+                _b = all_ohlcv.get(_c, [])[-21:]
+                if len(_b) < 3: continue
+                _bs = '|'.join([
+                    f"{b['date'][5:]}:{int(b.get('O') or b.get('C',0))}:{int(b.get('H',0))}:{int(b.get('L') or b.get('C',0))}:{int(b.get('C',0))}:{int(b.get('V',0))}"
+                    for b in _b if b.get('C')
+                ])
+                if _bs: _ohlcv_parts_mc.append(f"{_c}~{_bs}")
+            _ohlcv_str_mc = ';'.join(_ohlcv_parts_mc)
+            st.session_state['miracle_url'] = f"{_mc_base}?data={_sp_data_mc}&ohlcv={_ohlcv_str_mc}"
+        except: pass
 
     # ── Info bar ──────────────────────────────────────────────────────────────
     c1,c2,c3,c4 = st.columns(4)
