@@ -1539,97 +1539,21 @@ def main():
             st.divider()
             st.markdown("#### 🌟 Miracle Cuan — Generate Signal Telegram")
 
-            sp_codes = [r['code'] for r in lst]
-            selected_code = st.selectbox("Pilih saham:", options=sp_codes, key='tp_sl_select')
-            sel_r = next((r for r in lst if r['code'] == selected_code), None)
+            # Build URL params dari saham di watchlist hari ini
+            sp_data = ','.join([f"{r['code']}:{r['close']}" for r in lst[:30]])  # max 30 saham
+            base_url = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
+            iframe_url = f"{base_url}?data={sp_data}"
 
-            if sel_r:
-                entry_price = sel_r['close']
-                from datetime import date
-
-                # Entry display
-                st.markdown(f"""<div style="background:var(--secondary-background-color);border-radius:10px;
-                    padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                    <span style="font-size:12px;color:gray">Entry</span>
-                    <span style="font-size:18px;font-weight:700">{entry_price:,}</span>
-                </div>""", unsafe_allow_html=True)
-
-                # ── Take Profit ──────────────────────────
-                st.markdown("**🎯 Take Profit**")
-                col_tpr, col_tpp = st.columns([3,2])
-                with col_tpr:
-                    tp_pct = st.slider("TP %", 1.0, 30.0, 8.0, 0.5,
-                                       key='tp_r', label_visibility='collapsed')
-                with col_tpp:
-                    tp_price_input = st.number_input("Harga TP", min_value=1,
-                        value=int(round(entry_price * (1 + tp_pct/100))),
-                        step=1, key='tp_p', label_visibility='collapsed')
-
-                # Sinkron: jika harga manual berbeda dari slider
-                tp_price_from_slider = int(round(entry_price * (1 + tp_pct/100)))
-                if tp_price_input != tp_price_from_slider:
-                    tp_pct_real = round((tp_price_input - entry_price) / entry_price * 100, 1)
-                    tp_final = tp_price_input
-                else:
-                    tp_pct_real = tp_pct
-                    tp_final = tp_price_from_slider
-
-                st.markdown(f"<div style='color:#1D9E75;font-weight:600;font-size:14px'>+{tp_pct_real:.1f}% → {tp_final:,}</div>",
-                            unsafe_allow_html=True)
-
-                st.markdown("**🛑 Stop Loss**")
-                sl_none = st.checkbox("NONE (tanpa SL)", key='sl_none_chk')
-
-                sl_final = None
-                sl_pct_real = 0.0
-                if not sl_none:
-                    col_slr, col_slp = st.columns([3,2])
-                    with col_slr:
-                        sl_pct = st.slider("SL %", 1.0, 15.0, 4.0, 0.5,
-                                           key='sl_r', label_visibility='collapsed')
-                    with col_slp:
-                        sl_price_input = st.number_input("Harga SL", min_value=1,
-                            value=int(round(entry_price * (1 - sl_pct/100))),
-                            step=1, key='sl_p', label_visibility='collapsed')
-
-                    sl_price_from_slider = int(round(entry_price * (1 - sl_pct/100)))
-                    if sl_price_input != sl_price_from_slider:
-                        sl_pct_real = round((entry_price - sl_price_input) / entry_price * 100, 1)
-                        sl_final = sl_price_input
-                    else:
-                        sl_pct_real = sl_pct
-                        sl_final = sl_price_from_slider
-
-                    st.markdown(f"<div style='color:#E24B4A;font-weight:600;font-size:14px'>-{sl_pct_real:.1f}% → {sl_final:,}</div>",
-                                unsafe_allow_html=True)
-
-                    # R/R
-                    rr = round(tp_pct_real / sl_pct_real, 1) if sl_pct_real > 0 else 0
-                    st.markdown(f"""<div style="background:var(--secondary-background-color);border-radius:8px;
-                        padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin:8px 0">
-                        <span style="font-size:12px;color:gray">⚖️ Risk / Reward</span>
-                        <span style="font-size:20px;font-weight:700;color:#60a5fa">1 : {rr}</span>
-                    </div>""", unsafe_allow_html=True)
-
-                # Generate pesan
-                tgl = date.today().strftime('%d %b %Y')
-                sl_line = f"🛑 SL      :  {sl_final:,}  (-{sl_pct_real:.1f}%)" if not sl_none else "🛑 SL      :  NONE"
-                rr_line = f"\n⚖️ R/R     :  1 : {rr}" if not sl_none and sl_pct_real > 0 else ""
-
-                pesan = f"""🌟 MIRACLE CUAN 🌟
-━━━━━━━━━━━━━━━━━━━━
-
-📌 {selected_code}
-📅 {tgl}
-
-💰 Entry  :  {entry_price:,}
-🎯 TP      :  {tp_final:,}  (+{tp_pct_real:.1f}%)
-{sl_line}{rr_line}
-
-⚠️ DYOR — bukan rekomendasi investasi."""
-
-                st.code(pesan, language=None)
-                st.caption("Salin pesan di atas lalu kirim ke Telegram.")
+            # Embed via iframe
+            iframe_html = f'''<iframe
+                src="{iframe_url}"
+                width="100%"
+                height="680"
+                frameborder="0"
+                style="border-radius:12px;border:0.5px solid #1e293b;"
+                allow="clipboard-write"
+            ></iframe>'''
+            st.html(iframe_html)
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
