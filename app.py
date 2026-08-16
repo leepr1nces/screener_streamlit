@@ -1023,6 +1023,9 @@ def main():
         st.divider()
         show_only_wl = st.toggle("★ Hanya WL", value=True)
         st.divider()
+        miracle_url = st.session_state.get('miracle_url', 'https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html')
+        st.link_button("🌟 Miracle Cuan", miracle_url, use_container_width=True)
+        st.divider()
         st.markdown("**Pola:**")
         col1,col2 = st.columns(2)
         show_boa   = col1.checkbox("BOA",    value=True)
@@ -1540,20 +1543,26 @@ def main():
             st.markdown("#### 🌟 Miracle Cuan — Generate Signal Telegram")
 
             # Build URL params dari saham di watchlist hari ini
-            sp_data = ','.join([f"{r['code']}:{r['close']}" for r in lst[:30]])  # max 30 saham
+            sp_data = ','.join([f"{r['code']}:{r['close']}" for r in lst[:30]])
             base_url = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
-            iframe_url = f"{base_url}?data={sp_data}"
+            miracle_url = f"{base_url}?data={sp_data}"
 
-            # Embed via iframe
-            iframe_html = f'''<iframe
-                src="{iframe_url}"
-                width="100%"
-                height="680"
-                frameborder="0"
-                style="border-radius:12px;border:0.5px solid #1e293b;"
-                allow="clipboard-write"
-            ></iframe>'''
-            st.html(iframe_html)
+            st.markdown(f"""
+            <a href="{miracle_url}" target="_blank" style="
+                display:inline-block;
+                background:linear-gradient(135deg,#1D9E75,#0d7a5a);
+                color:#fff;
+                font-size:15px;
+                font-weight:700;
+                padding:12px 28px;
+                border-radius:10px;
+                text-decoration:none;
+                letter-spacing:0.3px;
+            ">⚡ Buka Miracle Cuan Calculator</a>
+            <div style="font-size:11px;color:#64748b;margin-top:6px">
+                Terbuka di tab baru — data saham SP hari ini sudah terisi otomatis
+            </div>
+            """, unsafe_allow_html=True)
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
