@@ -1600,31 +1600,7 @@ def main():
             st.html(sp_tbl_html)
 
 
-            # ── TP / SL Generator ────────────────────────────────────
-            st.divider()
-            st.markdown("#### 🌟 Miracle Cuan — Generate Signal Telegram")
 
-            # Build URL params dari saham di watchlist hari ini
-            sp_data = ','.join([f"{r['code']}:{r['close']}" for r in lst[:30]])
-            base_url = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
-            miracle_url = f"{base_url}?data={sp_data}"
-
-            st.markdown(f"""
-            <a href="{miracle_url}" target="_blank" style="
-                display:inline-block;
-                background:linear-gradient(135deg,#1D9E75,#0d7a5a);
-                color:#fff;
-                font-size:15px;
-                font-weight:700;
-                padding:12px 28px;
-                border-radius:10px;
-                text-decoration:none;
-                letter-spacing:0.3px;
-            ">⚡ Buka Miracle Cuan Calculator</a>
-            <div style="font-size:11px;color:#64748b;margin-top:6px">
-                Terbuka di tab baru — data saham SP hari ini sudah terisi otomatis
-            </div>
-            """, unsafe_allow_html=True)
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
@@ -1860,6 +1836,9 @@ def main():
                     '<td style="padding:8px 10px;text-align:center">' + build_vol_sparkline(r['code'], all_ohlcv) + '</td>'
                     '<td style="padding:8px 10px">' + badges + '</td>'
                     '<td style="padding:8px 10px;font-size:11px;color:#888">' + r.get('filter','') + '</td>'
+                    '<td style="padding:8px 10px;text-align:center">'
+                    + '<a href="' + (st.session_state.get('miracle_url','') + '&selected=' + r['code'] if '?' in st.session_state.get('miracle_url','') else 'https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html?data=' + r['code'] + ':' + str(r['close']) + '&selected=' + r['code']) + '" target="_blank" style="text-decoration:none;font-size:16px">🌟</a>'
+                    + '</td>'
                     '</tr>'
                 )
 
@@ -1874,6 +1853,7 @@ def main():
                 '<th style="padding:8px 10px;text-align:center;color:#888;font-weight:400">Vol Trend</th>'
                 '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Pola</th>'
                 '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Filter</th>'
+                '<th style="padding:8px 10px;text-align:center;color:#888;font-weight:400">🌟</th>'
                 '</tr></thead><tbody>' + ''.join(tbl_rows) + '</tbody></table>'
             )
             st.markdown(f"**{len(auto_sp)} saham terseleksi**")
