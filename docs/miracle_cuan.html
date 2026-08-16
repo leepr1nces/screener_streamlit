@@ -41,7 +41,7 @@ input[type=range]{width:100%;margin:3px 0;accent-color:#1D9E75;cursor:pointer}
 .noneinfo{font-size:11px;color:#475569;padding:4px 0;font-style:italic}
 .set-btn{width:100%;padding:7px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;background:#1D9E75;color:#fff;border:none;margin-top:7px}
 .manual-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:5px}
-.chart-wrap{background:#1e293b;border-radius:10px;padding:12px;margin-bottom:10px}
+.chart-wrap{background:#1e293b;border-radius:10px;padding:12px;margin-bottom:10px;max-width:380px}
 .chart-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .chart-title{font-size:12px;font-weight:600;color:#94a3b8}
 .chart-legend{display:flex;gap:10px;font-size:10px}
@@ -258,8 +258,8 @@ function drawChart(){
   empty.style.display='none';
   document.getElementById('chart-lbl').textContent='📊 '+CODE+' — '+bars.length+'H';
 
-  const W=document.getElementById('chart-wrap').clientWidth-24;
-  const HP=180, HV=55, PAD=6;
+  const W=Math.min(350, document.getElementById('chart-wrap').getBoundingClientRect().width-24);
+  const HP=220, HV=60, PAD=6;
   cvP.width=W; cvP.height=HP;
   cvV.width=W; cvV.height=HV;
 
@@ -271,7 +271,7 @@ function drawChart(){
   const n=bars.length;
   const allP=bars.flatMap(b=>[b.h,b.l]);
   const mn=Math.min(...allP), mx=Math.max(...allP), rng=mx-mn||1;
-  const bw=Math.max(2,Math.floor((W-PAD*2)/n*0.55));
+  const bw=Math.max(3,Math.floor((W-PAD*2)/n*0.5));
   const gap=(W-PAD*2)/n;
 
   function toX(i){return PAD+i*gap+gap/2;}
