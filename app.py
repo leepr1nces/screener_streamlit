@@ -993,6 +993,20 @@ def build_trackrecord(all_ohlcv, all_dates, max_hold=5):
 
     return records
 
+
+def build_vol_sparkline(code, all_ohlcv):
+    """Vol sparkline global — bisa dipanggil dari tab mana saja."""
+    bars_s = all_ohlcv.get(code, [])
+    vols_s = [b.get('V', 0) for b in bars_s[-14:]]
+    if len(vols_s) < 3: return '—'
+    mx_s = max(vols_s) if max(vols_s) > 0 else 1
+    parts_s = []
+    for i_s, v_s in enumerate(vols_s):
+        h_s = max(2, int(v_s / mx_s * 18))
+        col_s = '#1D9E75' if i_s == 0 or v_s >= vols_s[i_s-1] else '#EF9F27'
+        parts_s.append('<span style="display:inline-block;width:3px;height:' + str(h_s) + 'px;background:' + col_s + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
+    return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1478,6 +1492,18 @@ def main():
                 parts_s.append('<span style="display:inline-block;width:3px;height:' + str(h_s) + 'px;background:' + col_s + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
             return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
 
+        def make_vol_sparkline(code):
+            bars_s = all_ohlcv.get(code, [])
+            vols_s = [b.get('V', 0) for b in bars_s[-14:]]
+            if len(vols_s) < 3: return '—'
+            mx_s = max(vols_s) if max(vols_s) > 0 else 1
+            parts_s = []
+            for i_s, v_s in enumerate(vols_s):
+                h_s = max(2, int(v_s / mx_s * 18))
+                col_s = '#1D9E75' if i_s == 0 or v_s >= vols_s[i_s-1] else '#EF9F27'
+                parts_s.append('<span style="display:inline-block;width:3px;height:' + str(h_s) + 'px;background:' + col_s + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
+            return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
+
         if lst:
             # Render tabel SP sebagai HTML — supaya sparkline bisa inline
             def vol_color(v, thresh_low=0.3, thresh_mid=0.7):
@@ -1513,6 +1539,7 @@ def main():
                     '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(round(chg,2)) + '%</td>'
                     '<td style="padding:7px 10px;text-align:right;color:' + hc + ';font-weight:500">' + sh + str(round(hvp,2)) + '%</td>'
                     '<td style="padding:7px 10px;text-align:center">' + spark + '</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + make_vol_sparkline(r['code']) + '</td>'
                     '<td style="padding:7px 10px;text-align:right;color:' + vc + '">' + str(round(vol,2)) + '</td>'
                     '<td style="padding:7px 10px;text-align:right;color:' + vpc + ';font-weight:500">' + str(round(vp,2)) + 'x</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + sm + str(round(mc,2)) + '%</td>'
@@ -1529,6 +1556,7 @@ def main():
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">H/P%</th>'
                 '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Trend 14H</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Vol Trend</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol/avg</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol/Prev</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">mc8%</th>'
@@ -1795,6 +1823,7 @@ def main():
                     '<td style="padding:8px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(round(chg,2)) + '%</td>'
                     '<td style="padding:8px 10px;text-align:right;color:' + hc + ';font-weight:500">' + sh + str(round(hvp,2)) + '%</td>'
                     '<td style="padding:8px 10px;text-align:center">' + spark + '</td>'
+                    '<td style="padding:8px 10px;text-align:center">' + build_vol_sparkline(r['code'], all_ohlcv) + '</td>'
                     '<td style="padding:8px 10px">' + badges + '</td>'
                     '<td style="padding:8px 10px;font-size:11px;color:#888">' + r.get('filter','') + '</td>'
                     '</tr>'
@@ -1808,6 +1837,7 @@ def main():
                 '<th style="padding:8px 10px;text-align:right;color:#888;font-weight:400">Chg%</th>'
                 '<th style="padding:8px 10px;text-align:right;color:#888;font-weight:400">H/P%</th>'
                 '<th style="padding:8px 10px;text-align:center;color:#888;font-weight:400">Trend 14H</th>'
+                '<th style="padding:8px 10px;text-align:center;color:#888;font-weight:400">Vol Trend</th>'
                 '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Pola</th>'
                 '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Filter</th>'
                 '</tr></thead><tbody>' + ''.join(tbl_rows) + '</tbody></table>'
