@@ -1558,6 +1558,9 @@ def main():
                 wl  = '★ ' if r.get('in_wl') else ''
 
                 candle_color = '#4ade80' if 'Hijau' in candle else ('#f87171' if 'Merah' in candle else '#fbbf24')
+                # URL Miracle Cuan per saham
+                _mc_base_row = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
+                mc_url_row = st.session_state.get('miracle_url', _mc_base_row) + f"&selected={r['code']}" if '?' in st.session_state.get('miracle_url', '') else _mc_base_row + f"?data={r['code']}:{r['close']}&selected={r['code']}" 
 
                 sp_rows_html.append(
                     '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
@@ -1572,6 +1575,9 @@ def main():
                     '<td style="padding:7px 10px;text-align:right;color:' + vpc + ';font-weight:500">' + str(round(vp,2)) + 'x</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + sm + str(round(mc,2)) + '%</td>'
                     '<td style="padding:7px 10px;text-align:center;color:' + candle_color + ';font-size:12px">' + candle + '</td>'
+                    '<td style="padding:7px 10px;text-align:center">'
+                    + '<a href="' + mc_url_row + '" target="_blank" style="text-decoration:none;font-size:16px">🌟</a>'
+                    + '</td>'
                     '</tr>'
                 )
 
