@@ -1545,224 +1545,195 @@ def main():
 
             if sel_r:
                 entry_price = sel_r['close']
-                from datetime import date
 
-                # Render komponen via HTML + JS interaktif
-                tpsl_html = """
-<style>
-.mc-wrap{font-family:sans-serif;color:#e2e8f0}
-.mc-entry{background:#1e293b;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;margin-bottom:14px;font-size:13px}
-.mc-label{color:#94a3b8}
-.mc-row{margin-bottom:14px}
-.mc-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.mc-row-title{font-size:12px;font-weight:600}
-.mc-modes{display:flex;gap:4px}
-.mc-btn{padding:2px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:0.5px solid #334155;background:#1e293b;color:#94a3b8}
-.mc-btn.active-tp{background:#1D9E75;color:#fff;border-color:#1D9E75}
-.mc-btn.active-sl{background:#E24B4A;color:#fff;border-color:#E24B4A}
-.mc-slider{width:100%;margin-bottom:4px;accent-color:#1D9E75}
-.mc-slider-sl{accent-color:#E24B4A}
-.mc-result{display:flex;justify-content:space-between;margin-top:4px}
-.mc-pct{font-size:12px;font-weight:500}
-.mc-pct-tp{color:#1D9E75}.mc-pct-sl{color:#E24B4A}
-.mc-price{font-size:16px;font-weight:600}
-.mc-price-tp{color:#1D9E75}.mc-price-sl{color:#E24B4A}
-.mc-input{width:100%;padding:6px 10px;border-radius:6px;border:0.5px solid #334155;background:#1e293b;color:#e2e8f0;font-size:14px;box-sizing:border-box}
-.mc-rr{background:#1e293b;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;margin-bottom:14px;font-size:13px}
-.mc-rr-val{font-size:16px;font-weight:600;color:#60a5fa}
-.mc-gen{width:100%;padding:9px;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer;background:#1D9E75;color:#fff;border:none}
-.tg-box{background:#17212b;border-radius:10px;padding:14px;margin-top:14px}
-.tg-pre{font-family:monospace;font-size:12px;color:#e8e8e8;line-height:1.8;white-space:pre-wrap;margin-bottom:10px}
-.tg-copy{width:100%;padding:7px;font-size:12px;border-radius:7px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff}
-</style>
+                tpsl_html = f"""<!DOCTYPE html>
+<html><head><style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:12px}}
+.card{{background:#1e293b;border-radius:10px;padding:12px;margin-bottom:10px}}
+.lbl{{font-size:11px;color:#94a3b8;margin-bottom:2px}}
+.val{{font-size:17px;font-weight:600}}
+.stitle{{font-size:12px;font-weight:600}}
+.modes{{display:flex;gap:4px}}
+.mb{{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #334155;background:#0f172a;color:#94a3b8}}
+.atp{{background:#1D9E75!important;color:#fff!important;border-color:#1D9E75!important}}
+.asl{{background:#E24B4A!important;color:#fff!important;border-color:#E24B4A!important}}
+input[type=range]{{width:100%;accent-color:#1D9E75;margin:4px 0}}
+.slr{{accent-color:#E24B4A}}
+.rrow{{display:flex;justify-content:space-between;align-items:center;margin-top:4px}}
+.pt{{color:#1D9E75;font-size:12px;font-weight:500}}
+.ps{{color:#E24B4A;font-size:12px;font-weight:500}}
+.vt{{color:#1D9E75;font-size:17px;font-weight:700}}
+.vs{{color:#E24B4A;font-size:17px;font-weight:700}}
+input[type=number]{{width:100%;padding:7px 10px;border-radius:7px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px}}
+.rrc{{background:#0f172a;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}}
+.rrv{{font-size:18px;font-weight:700;color:#60a5fa}}
+.gbtn{{width:100%;padding:10px;font-size:14px;font-weight:700;border-radius:8px;cursor:pointer;background:#1D9E75;color:#fff;border:none;margin-bottom:10px}}
+.tgbox{{background:#17212b;border-radius:10px;padding:14px;display:none}}
+.tgpre{{font-family:monospace;font-size:12px;color:#e8e8e8;line-height:1.8;white-space:pre-wrap;margin-bottom:10px}}
+.cpbtn{{width:100%;padding:7px;font-size:12px;border-radius:7px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff}}
+.nonemsg{{font-size:12px;color:#64748b;padding:6px 0}}
+.rh{{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}}
+</style></head><body>
 
-<div class="mc-wrap">
-  <div class="mc-entry">
-    <span class="mc-label">Entry</span>
-    <span style="font-size:14px;font-weight:600">""" + f"{entry_price:,}" + """</span>
-  </div>
+<div class="card">
+  <div class="lbl">Entry</div>
+  <div class="val">{entry_price:,}</div>
+</div>
 
-  <!-- TP -->
-  <div class="mc-row">
-    <div class="mc-row-head">
-      <span class="mc-row-title">Take Profit</span>
-      <div class="mc-modes">
-        <button class="mc-btn active-tp" onclick="setMode('tp','pct')" id="tp-b-pct">%</button>
-        <button class="mc-btn" onclick="setMode('tp','price')" id="tp-b-price">Harga</button>
-      </div>
-    </div>
-    <div id="tp-pct-mode">
-      <input type="range" class="mc-slider" id="tp-slider" min="1" max="30" step="0.5" value="8" oninput="syncTP()">
-      <div class="mc-result">
-        <span class="mc-pct mc-pct-tp" id="tp-pct-lbl">+8.0%</span>
-        <span class="mc-price mc-price-tp" id="tp-price-lbl"></span>
-      </div>
-    </div>
-    <div id="tp-price-mode" style="display:none">
-      <input type="number" class="mc-input" id="tp-price-inp" min="1" step="1" oninput="syncTPfromPrice()">
-      <div class="mc-result">
-        <span class="mc-pct mc-pct-tp" id="tp-pct-lbl2"></span>
-        <span style="font-size:11px;color:#64748b">dari entry</span>
-      </div>
+<div style="margin-bottom:12px">
+  <div class="rh">
+    <span class="stitle">Take Profit</span>
+    <div class="modes">
+      <button class="mb atp" id="tp-bp" onclick="setMode('tp','pct')">%</button>
+      <button class="mb" id="tp-bh" onclick="setMode('tp','price')">Harga</button>
     </div>
   </div>
-
-  <!-- SL -->
-  <div class="mc-row">
-    <div class="mc-row-head">
-      <span class="mc-row-title">Stop Loss</span>
-      <div class="mc-modes">
-        <button class="mc-btn active-sl" onclick="setMode('sl','pct')" id="sl-b-pct">%</button>
-        <button class="mc-btn" onclick="setMode('sl','price')" id="sl-b-price">Harga</button>
-        <button class="mc-btn" onclick="setMode('sl','none')" id="sl-b-none">NONE</button>
-      </div>
-    </div>
-    <div id="sl-pct-mode">
-      <input type="range" class="mc-slider mc-slider-sl" id="sl-slider" min="1" max="15" step="0.5" value="4" oninput="syncSL()">
-      <div class="mc-result">
-        <span class="mc-pct mc-pct-sl" id="sl-pct-lbl">-4.0%</span>
-        <span class="mc-price mc-price-sl" id="sl-price-lbl"></span>
-      </div>
-    </div>
-    <div id="sl-price-mode" style="display:none">
-      <input type="number" class="mc-input" id="sl-price-inp" min="1" step="1" oninput="syncSLfromPrice()">
-      <div class="mc-result">
-        <span class="mc-pct mc-pct-sl" id="sl-pct-lbl2"></span>
-        <span style="font-size:11px;color:#64748b">dari entry</span>
-      </div>
-    </div>
-    <div id="sl-none-mode" style="display:none;font-size:12px;color:#64748b;padding:4px 0">Tanpa Stop Loss</div>
+  <div id="tp-pm">
+    <input type="range" id="tp-sl" min="1" max="30" step="0.5" value="8" oninput="syncTP()">
+    <div class="rrow"><span class="pt" id="tp-pl">+8.0%</span><span class="vt" id="tp-vh"></span></div>
   </div>
-
-  <div class="mc-rr" id="rr-box">
-    <span class="mc-label">Risk / Reward</span>
-    <span class="mc-rr-val" id="rr-val">1 : 2.0</span>
-  </div>
-
-  <button class="mc-gen" onclick="generateMsg()">Generate pesan Telegram</button>
-
-  <div class="tg-box" id="tg-box" style="display:none">
-    <div class="tg-pre" id="tg-pre"></div>
-    <button class="tg-copy" onclick="copyMsg()">Salin pesan</button>
+  <div id="tp-hm" style="display:none">
+    <input type="number" id="tp-in" min="1" step="1" placeholder="Harga TP" oninput="syncTPp()">
+    <div class="rrow" style="margin-top:6px"><span class="pt" id="tp-pl2"></span><span style="font-size:11px;color:#64748b">dari entry</span></div>
   </div>
 </div>
 
+<div style="margin-bottom:12px">
+  <div class="rh">
+    <span class="stitle">Stop Loss</span>
+    <div class="modes">
+      <button class="mb asl" id="sl-bp" onclick="setMode('sl','pct')">%</button>
+      <button class="mb" id="sl-bh" onclick="setMode('sl','price')">Harga</button>
+      <button class="mb" id="sl-bn" onclick="setMode('sl','none')">NONE</button>
+    </div>
+  </div>
+  <div id="sl-pm">
+    <input type="range" class="slr" id="sl-sl" min="1" max="15" step="0.5" value="4" oninput="syncSL()">
+    <div class="rrow"><span class="ps" id="sl-pl">-4.0%</span><span class="vs" id="sl-vh"></span></div>
+  </div>
+  <div id="sl-hm" style="display:none">
+    <input type="number" id="sl-in" min="1" step="1" placeholder="Harga SL" oninput="syncSLp()">
+    <div class="rrow" style="margin-top:6px"><span class="ps" id="sl-pl2"></span><span style="font-size:11px;color:#64748b">dari entry</span></div>
+  </div>
+  <div id="sl-nm" class="nonemsg" style="display:none">Tanpa Stop Loss</div>
+</div>
+
+<div class="rrc" id="rrc">
+  <span style="font-size:12px;color:#94a3b8">Risk / Reward</span>
+  <span class="rrv" id="rrv">1 : 2.0</span>
+</div>
+
+<button class="gbtn" onclick="gen()">⚡ Generate pesan Telegram</button>
+
+<div class="tgbox" id="tgb">
+  <div class="tgpre" id="tgp"></div>
+  <button class="cpbtn" onclick="cp()">Salin pesan</button>
+</div>
+
 <script>
-const ENTRY = """ + str(entry_price) + """;
-const CODE  = '""" + selected_code + """';
-let tpMode='pct', slMode='pct';
+const E={entry_price}, CODE='{selected_code}';
+let tm='pct', sm='pct';
+function f(n){{return n.toLocaleString('id-ID')}}
 
-function fmt(n){ return n.toLocaleString('id-ID'); }
-
-function init(){
-  document.getElementById('tp-price-inp').value = Math.round(ENTRY*1.08);
-  document.getElementById('sl-price-inp').value = Math.round(ENTRY*0.96);
+function init(){{
+  document.getElementById('tp-in').value=Math.round(E*1.08);
+  document.getElementById('sl-in').value=Math.round(E*0.96);
   syncTP(); syncSL();
-}
+}}
 
-function setMode(which, mode){
-  if(which==='tp'){
-    tpMode=mode;
-    document.getElementById('tp-pct-mode').style.display  = mode==='pct'   ?'block':'none';
-    document.getElementById('tp-price-mode').style.display= mode==='price' ?'block':'none';
-    ['tp-b-pct','tp-b-price'].forEach(id=>{
-      const on=(id==='tp-b-pct'&&mode==='pct')||(id==='tp-b-price'&&mode==='price');
-      const b=document.getElementById(id);
-      b.className='mc-btn'+(on?' active-tp':'');
-    });
-  } else {
-    slMode=mode;
-    document.getElementById('sl-pct-mode').style.display  = mode==='pct'   ?'block':'none';
-    document.getElementById('sl-price-mode').style.display= mode==='price' ?'block':'none';
-    document.getElementById('sl-none-mode').style.display = mode==='none'  ?'block':'none';
-    document.getElementById('rr-box').style.display       = mode==='none'  ?'none' :'flex';
-    ['sl-b-pct','sl-b-price','sl-b-none'].forEach(id=>{
-      const on=(id==='sl-b-pct'&&mode==='pct')||(id==='sl-b-price'&&mode==='price')||(id==='sl-b-none'&&mode==='none');
-      const b=document.getElementById(id);
-      b.className='mc-btn'+(on?' active-sl':'');
-    });
-  }
-}
+function setMode(w,m){{
+  if(w==='tp'){{
+    tm=m;
+    document.getElementById('tp-pm').style.display=m==='pct'?'block':'none';
+    document.getElementById('tp-hm').style.display=m==='price'?'block':'none';
+    [['tp-bp','pct'],['tp-bh','price']].forEach(([id,v])=>{{
+      document.getElementById(id).className='mb'+(m===v?' atp':'');
+    }});
+  }}else{{
+    sm=m;
+    document.getElementById('sl-pm').style.display=m==='pct'?'block':'none';
+    document.getElementById('sl-hm').style.display=m==='price'?'block':'none';
+    document.getElementById('sl-nm').style.display=m==='none'?'block':'none';
+    document.getElementById('rrc').style.display=m==='none'?'none':'flex';
+    [['sl-bp','pct'],['sl-bh','price'],['sl-bn','none']].forEach(([id,v])=>{{
+      document.getElementById(id).className='mb'+(m===v?' asl':'');
+    }});
+  }}
+}}
 
-function syncTP(){
-  const pct=parseFloat(document.getElementById('tp-slider').value);
-  const price=Math.round(ENTRY*(1+pct/100));
-  document.getElementById('tp-pct-lbl').textContent='+'+pct.toFixed(1)+'%';
-  document.getElementById('tp-price-lbl').textContent=fmt(price);
-  document.getElementById('tp-price-inp').value=price;
-  document.getElementById('tp-pct-lbl2').textContent='+'+pct.toFixed(1)+'%';
-  updateRR();
-}
-function syncTPfromPrice(){
-  const price=parseInt(document.getElementById('tp-price-inp').value)||ENTRY;
-  const pct=((price-ENTRY)/ENTRY*100);
-  document.getElementById('tp-pct-lbl2').textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';
-  document.getElementById('tp-slider').value=Math.min(30,Math.max(1,pct));
-  document.getElementById('tp-pct-lbl').textContent=(pct>=0?'+':'')+pct.toFixed(1)+'%';
-  document.getElementById('tp-price-lbl').textContent=fmt(price);
-  updateRR();
-}
-function syncSL(){
-  const pct=parseFloat(document.getElementById('sl-slider').value);
-  const price=Math.round(ENTRY*(1-pct/100));
-  document.getElementById('sl-pct-lbl').textContent='-'+pct.toFixed(1)+'%';
-  document.getElementById('sl-price-lbl').textContent=fmt(price);
-  document.getElementById('sl-price-inp').value=price;
-  document.getElementById('sl-pct-lbl2').textContent='-'+pct.toFixed(1)+'%';
-  updateRR();
-}
-function syncSLfromPrice(){
-  const price=parseInt(document.getElementById('sl-price-inp').value)||ENTRY;
-  const pct=((ENTRY-price)/ENTRY*100);
-  document.getElementById('sl-pct-lbl2').textContent='-'+pct.toFixed(1)+'%';
-  document.getElementById('sl-slider').value=Math.min(15,Math.max(1,pct));
-  document.getElementById('sl-pct-lbl').textContent='-'+pct.toFixed(1)+'%';
-  document.getElementById('sl-price-lbl').textContent=fmt(price);
-  updateRR();
-}
-function updateRR(){
-  if(slMode==='none') return;
-  const tp=parseFloat(document.getElementById('tp-slider').value);
-  const sl=parseFloat(document.getElementById('sl-slider').value);
-  document.getElementById('rr-val').textContent='1 : '+(tp/sl).toFixed(1);
-}
-
-function getTP(){
-  const price=parseInt(document.getElementById('tp-price-inp').value)||Math.round(ENTRY*1.08);
-  const pct=((price-ENTRY)/ENTRY*100).toFixed(1);
-  return {price, pct};
-}
-function getSL(){
-  if(slMode==='none') return null;
-  const price=parseInt(document.getElementById('sl-price-inp').value)||Math.round(ENTRY*0.96);
-  const pct=((ENTRY-price)/ENTRY*100).toFixed(1);
-  return {price, pct};
-}
-
-function generateMsg(){
-  const tp=getTP(); const sl=getSL();
+function syncTP(){{
+  const p=parseFloat(document.getElementById('tp-sl').value);
+  const price=Math.round(E*(1+p/100));
+  document.getElementById('tp-pl').textContent='+'+p.toFixed(1)+'%';
+  document.getElementById('tp-vh').textContent=f(price);
+  document.getElementById('tp-in').value=price;
+  document.getElementById('tp-pl2').textContent='+'+p.toFixed(1)+'%';
+  updRR();
+}}
+function syncTPp(){{
+  const price=parseInt(document.getElementById('tp-in').value)||E;
+  const p=((price-E)/E*100);
+  document.getElementById('tp-pl2').textContent=(p>=0?'+':'')+p.toFixed(1)+'%';
+  document.getElementById('tp-sl').value=Math.min(30,Math.max(1,p));
+  document.getElementById('tp-pl').textContent=(p>=0?'+':'')+p.toFixed(1)+'%';
+  document.getElementById('tp-vh').textContent=f(price);
+  updRR();
+}}
+function syncSL(){{
+  const p=parseFloat(document.getElementById('sl-sl').value);
+  const price=Math.round(E*(1-p/100));
+  document.getElementById('sl-pl').textContent='-'+p.toFixed(1)+'%';
+  document.getElementById('sl-vh').textContent=f(price);
+  document.getElementById('sl-in').value=price;
+  document.getElementById('sl-pl2').textContent='-'+p.toFixed(1)+'%';
+  updRR();
+}}
+function syncSLp(){{
+  const price=parseInt(document.getElementById('sl-in').value)||E;
+  const p=((E-price)/E*100);
+  document.getElementById('sl-pl2').textContent='-'+p.toFixed(1)+'%';
+  document.getElementById('sl-sl').value=Math.min(15,Math.max(1,p));
+  document.getElementById('sl-pl').textContent='-'+p.toFixed(1)+'%';
+  document.getElementById('sl-vh').textContent=f(price);
+  updRR();
+}}
+function updRR(){{
+  if(sm==='none') return;
+  const tp=parseFloat(document.getElementById('tp-sl').value);
+  const sl=parseFloat(document.getElementById('sl-sl').value);
+  document.getElementById('rrv').textContent='1 : '+(tp/sl).toFixed(1);
+}}
+function gen(){{
+  const tpp=parseInt(document.getElementById('tp-in').value)||Math.round(E*1.08);
+  const tppc=((tpp-E)/E*100).toFixed(1);
+  const mo=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
   const now=new Date();
-  const months=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
-  const dateStr=now.getDate()+' '+months[now.getMonth()]+' '+now.getFullYear();
-  let slLine = sl ? '🛑 SL      :  '+fmt(sl.price)+'  (-'+sl.pct+'%)' : '🛑 SL      :  NONE';
-  let rrLine  = sl ? '\n⚖️ R/R     :  1 : '+(parseFloat(tp.pct)/parseFloat(sl.pct)).toFixed(1) : '';
-  const msg = '🌟 MIRACLE CUAN 🌟\n━━━━━━━━━━━━━━━━━━━━\n\n📌 '+CODE+'\n📅 '+dateStr+'\n\n💰 Entry  :  '+fmt(ENTRY)+'\n🎯 TP      :  '+fmt(tp.price)+'  (+'+tp.pct+'%)\n'+slLine+rrLine+'\n\n⚠️ DYOR — bukan rekomendasi investasi.';
-  document.getElementById('tg-pre').textContent=msg;
-  document.getElementById('tg-box').style.display='block';
-}
-
-function copyMsg(){
-  const txt=document.getElementById('tg-pre').textContent;
-  navigator.clipboard.writeText(txt).catch(()=>{});
-  const btn=document.querySelector('.tg-copy');
-  btn.textContent='Tersalin! ✓';
-  setTimeout(()=>{btn.textContent='Salin pesan'},2000);
-}
-
+  const ds=now.getDate()+' '+mo[now.getMonth()]+' '+now.getFullYear();
+  let sl,rr='';
+  if(sm==='none'){{sl='🛑 SL      :  NONE';}}
+  else{{
+    const slp=parseInt(document.getElementById('sl-in').value)||Math.round(E*0.96);
+    const slpc=((E-slp)/E*100).toFixed(1);
+    sl='🛑 SL      :  '+f(slp)+'  (-'+slpc+'%)';
+    rr='\n⚖️ R/R     :  1 : '+(parseFloat(tppc)/parseFloat(slpc)).toFixed(1);
+  }}
+  const msg='🌟 MIRACLE CUAN 🌟\n━━━━━━━━━━━━━━━━━━━━\n\n📌 '+CODE+'\n📅 '+ds+'\n\n💰 Entry  :  '+f(E)+'\n🎯 TP      :  '+f(tpp)+'  (+'+tppc+'%)\n'+sl+rr+'\n\n⚠️ DYOR — bukan rekomendasi investasi.';
+  document.getElementById('tgp').textContent=msg;
+  document.getElementById('tgb').style.display='block';
+}}
+function cp(){{
+  navigator.clipboard.writeText(document.getElementById('tgp').textContent).catch(()=>{{}});
+  const b=document.querySelector('.cpbtn');
+  b.textContent='Tersalin! ✓';
+  setTimeout(()=>{{b.textContent='Salin pesan'}},2000);
+}}
 init();
 </script>
-"""
-                st.html(tpsl_html)
+</body></html>"""
+
+                import streamlit.components.v1 as components
+                components.html(tpsl_html, height=620, scrolling=False)
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
