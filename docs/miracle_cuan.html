@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Miracle Cuan — Signal Generator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:16px;font-size:14px}
+
+.header{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1e293b}
+.header-icon{font-size:20px}
+.header-title{font-size:15px;font-weight:700;color:#f1f5f9}
+.header-sub{font-size:11px;color:#64748b}
+
+.card{background:#1e293b;border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.card-row{display:flex;justify-content:space-between;align-items:center}
+.lbl{font-size:11px;color:#64748b;margin-bottom:3px}
+.val{font-size:17px;font-weight:700;color:#f1f5f9}
+
+select,input[type=number]{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:14px;outline:none}
+select:focus,input[type=number]:focus{border-color:#1D9E75}
+
+.section{margin-bottom:12px}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.section-title{font-size:13px;font-weight:600}
+.badge{padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.badge-tp{background:#1D9E75;color:#fff}
+.badge-sl{background:#E24B4A;color:#fff}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=range]{width:100%;margin:4px 0;accent-color:#1D9E75;cursor:pointer}
+.sl-range{accent-color:#E24B4A}
+.range-labels{display:flex;justify-content:space-between;font-size:10px;color:#475569}
+
+.result-pill{border-radius:8px;padding:5px 10px;font-size:13px;font-weight:600;margin-top:6px;text-align:center}
+.result-tp{background:#0d2e1f;color:#1D9E75}
+.result-sl{background:#2d1111;color:#E24B4A}
+
+.rr-box{background:#0f172a;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.rr-val{font-size:20px;font-weight:700;color:#60a5fa}
+
+.sl-none-label{display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;cursor:pointer}
+.sl-none-label input{width:15px;height:15px;cursor:pointer;accent-color:#E24B4A}
+
+.gen-btn{width:100%;padding:11px;font-size:14px;font-weight:700;border-radius:9px;cursor:pointer;background:linear-gradient(135deg,#1D9E75,#0d7a5a);color:#fff;border:none;letter-spacing:0.3px;transition:opacity 0.15s}
+.gen-btn:hover{opacity:0.9}
+.gen-btn:active{opacity:0.8}
+
+.tg-box{background:#17212b;border-radius:10px;padding:14px;margin-top:10px;display:none}
+.tg-header{display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.tg-avatar{width:28px;height:28px;border-radius:50%;background:#2b5278;display:flex;align-items:center;justify-content:center;font-size:14px}
+.tg-name{font-size:12px;font-weight:600;color:#fff}
+.tg-sub{font-size:10px;color:#708499}
+.tg-signal{font-size:11px;font-weight:700;color:#E24B4A;letter-spacing:1px}
+.tg-pre{font-family:'Courier New',monospace;font-size:12px;color:#e8e8e8;line-height:1.8;white-space:pre-wrap;margin-bottom:10px}
+.cp-btn{width:100%;padding:8px;font-size:12px;border-radius:7px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;transition:background 0.15s}
+.cp-btn:hover{background:rgba(255,255,255,0.14)}
+.cp-btn.copied{background:#1D9E75;border-color:#1D9E75}
+
+.none-info{font-size:12px;color:#475569;padding:6px 0;font-style:italic}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">🌟</div>
+  <div>
+    <div class="header-title">Miracle Cuan</div>
+    <div class="header-sub">Signal Generator — IDX Screener</div>
+  </div>
+</div>
+
+<!-- Pilih saham -->
+<div class="card" style="margin-bottom:12px">
+  <div class="lbl">Pilih Saham</div>
+  <select id="stock-sel" onchange="onStock()" style="margin-top:4px">
+    <option value="">-- pilih saham --</option>
+  </select>
+</div>
+
+<div id="main" style="display:none">
+
+  <!-- Entry -->
+  <div class="card">
+    <div class="card-row">
+      <span class="lbl">Entry</span>
+      <span class="val" id="entry-v">—</span>
+    </div>
+  </div>
+
+  <!-- TP -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-title">🎯 Take Profit</span>
+      <span class="badge badge-tp" id="tp-badge">+8.0%</span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="lbl">Persentase</div>
+        <input type="range" id="tp-r" min="1" max="30" step="0.5" value="8" oninput="tpFromR()">
+        <div class="range-labels"><span>1%</span><span>30%</span></div>
+      </div>
+      <div>
+        <div class="lbl">Harga TP</div>
+        <input type="number" id="tp-p" min="1" step="1" oninput="tpFromP()">
+      </div>
+    </div>
+    <div class="result-pill result-tp" id="tp-result">—</div>
+  </div>
+
+  <!-- SL -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-title">🛑 Stop Loss</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="badge badge-sl" id="sl-badge">-4.0%</span>
+        <label class="sl-none-label">
+          <input type="checkbox" id="sl-none" onchange="toggleNone()"> NONE
+        </label>
+      </div>
+    </div>
+    <div id="sl-inputs">
+      <div class="grid2">
+        <div>
+          <div class="lbl">Persentase</div>
+          <input type="range" class="sl-range" id="sl-r" min="1" max="15" step="0.5" value="4" oninput="slFromR()">
+          <div class="range-labels"><span>1%</span><span>15%</span></div>
+        </div>
+        <div>
+          <div class="lbl">Harga SL</div>
+          <input type="number" id="sl-p" min="1" step="1" oninput="slFromP()">
+        </div>
+      </div>
+      <div class="result-pill result-sl" id="sl-result">—</div>
+    </div>
+    <div class="none-info" id="sl-none-info" style="display:none">Trading tanpa Stop Loss — disiplin ya! 🙏</div>
+  </div>
+
+  <!-- R/R -->
+  <div class="rr-box" id="rr-box">
+    <span style="font-size:12px;color:#64748b">⚖️ Risk / Reward</span>
+    <span class="rr-val" id="rr-v">1 : 2.0</span>
+  </div>
+
+  <!-- Generate -->
+  <button class="gen-btn" onclick="gen()">⚡ Generate Pesan Telegram</button>
+
+  <!-- Output -->
+  <div class="tg-box" id="tg-box">
+    <div class="tg-header">
+      <div class="tg-avatar">📈</div>
+      <div style="flex:1">
+        <div class="tg-name">IDX Screener</div>
+        <div class="tg-sub">StockPick Signal</div>
+      </div>
+      <div class="tg-signal">SIGNAL</div>
+    </div>
+    <div class="tg-pre" id="tg-pre"></div>
+    <button class="cp-btn" id="cp-btn" onclick="cp()">📋 Salin Pesan</button>
+  </div>
+
+</div>
+
+<script>
+// ── Data saham diinject dari URL params ──────────────
+// Format: ?data=CODE1:PRICE1,CODE2:PRICE2,...
+let STOCKS = [];
+let E = 0, CODE = '';
+
+function loadFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const data = params.get('data');
+  if (data) {
+    STOCKS = data.split(',').map(s => {
+      const [code, price] = s.split(':');
+      return { code, price: parseInt(price) };
+    });
+  } else {
+    // Default contoh jika tidak ada params
+    STOCKS = [
+      {code:'ASLI', price:210},
+      {code:'CSIS', price:218},
+      {code:'ADMR', price:1680},
+    ];
+  }
+  const sel = document.getElementById('stock-sel');
+  STOCKS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.code + '|' + s.price;
+    opt.textContent = s.code + ' — ' + s.price.toLocaleString('id-ID');
+    sel.appendChild(opt);
+  });
+}
+
+function f(n) { return n.toLocaleString('id-ID'); }
+
+function onStock() {
+  const v = document.getElementById('stock-sel').value;
+  if (!v) { document.getElementById('main').style.display = 'none'; return; }
+  const [code, price] = v.split('|');
+  CODE = code; E = parseInt(price);
+  document.getElementById('entry-v').textContent = f(E);
+  document.getElementById('tp-p').value = Math.round(E * 1.08);
+  document.getElementById('sl-p').value = Math.round(E * 0.96);
+  document.getElementById('main').style.display = 'block';
+  document.getElementById('tg-box').style.display = 'none';
+  tpFromR(); slFromR();
+}
+
+function tpFromR() {
+  const pct = parseFloat(document.getElementById('tp-r').value);
+  const price = Math.round(E * (1 + pct / 100));
+  document.getElementById('tp-p').value = price;
+  document.getElementById('tp-badge').textContent = '+' + pct.toFixed(1) + '%';
+  document.getElementById('tp-result').textContent = '🎯 ' + f(price) + '  (+' + pct.toFixed(1) + '%)';
+  updRR();
+}
+function tpFromP() {
+  const price = parseInt(document.getElementById('tp-p').value) || E;
+  const pct = ((price - E) / E * 100);
+  document.getElementById('tp-r').value = Math.min(30, Math.max(1, pct));
+  document.getElementById('tp-badge').textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+  document.getElementById('tp-result').textContent = '🎯 ' + f(price) + '  (' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%)';
+  updRR();
+}
+function slFromR() {
+  const pct = parseFloat(document.getElementById('sl-r').value);
+  const price = Math.round(E * (1 - pct / 100));
+  document.getElementById('sl-p').value = price;
+  document.getElementById('sl-badge').textContent = '-' + pct.toFixed(1) + '%';
+  document.getElementById('sl-result').textContent = '🛑 ' + f(price) + '  (-' + pct.toFixed(1) + '%)';
+  updRR();
+}
+function slFromP() {
+  const price = parseInt(document.getElementById('sl-p').value) || E;
+  const pct = ((E - price) / E * 100);
+  document.getElementById('sl-r').value = Math.min(15, Math.max(1, pct));
+  document.getElementById('sl-badge').textContent = '-' + pct.toFixed(1) + '%';
+  document.getElementById('sl-result').textContent = '🛑 ' + f(price) + '  (-' + pct.toFixed(1) + '%)';
+  updRR();
+}
+function toggleNone() {
+  const none = document.getElementById('sl-none').checked;
+  document.getElementById('sl-inputs').style.display = none ? 'none' : 'block';
+  document.getElementById('sl-none-info').style.display = none ? 'block' : 'none';
+  document.getElementById('rr-box').style.display = none ? 'none' : 'flex';
+  document.getElementById('sl-badge').style.display = none ? 'none' : 'inline-block';
+}
+function updRR() {
+  const tp = parseFloat(document.getElementById('tp-r').value);
+  const sl = parseFloat(document.getElementById('sl-r').value);
+  document.getElementById('rr-v').textContent = '1 : ' + (tp / sl).toFixed(1);
+}
+
+function gen() {
+  const tpp = parseInt(document.getElementById('tp-p').value) || Math.round(E * 1.08);
+  const tppc = ((tpp - E) / E * 100).toFixed(1);
+  const none = document.getElementById('sl-none').checked;
+  const mo = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+  const now = new Date();
+  const ds = now.getDate() + ' ' + mo[now.getMonth()] + ' ' + now.getFullYear();
+  let sl, rr = '';
+  if (none) {
+    sl = '🛑 SL      :  NONE';
+  } else {
+    const slp = parseInt(document.getElementById('sl-p').value) || Math.round(E * 0.96);
+    const slpc = ((E - slp) / E * 100).toFixed(1);
+    sl = '🛑 SL      :  ' + f(slp) + '  (-' + slpc + '%)';
+    rr = '\n⚖️ R/R     :  1 : ' + (parseFloat(tppc) / parseFloat(slpc)).toFixed(1);
+  }
+  const msg = '🌟 MIRACLE CUAN 🌟\n━━━━━━━━━━━━━━━━━━━━\n\n📌 ' + CODE + '\n📅 ' + ds + '\n\n💰 Entry  :  ' + f(E) + '\n🎯 TP      :  ' + f(tpp) + '  (+' + tppc + '%)\n' + sl + rr + '\n\n⚠️ DYOR — bukan rekomendasi investasi.';
+  document.getElementById('tg-pre').textContent = msg;
+  document.getElementById('tg-box').style.display = 'block';
+  document.getElementById('tg-box').scrollIntoView({behavior:'smooth'});
+}
+
+function cp() {
+  const txt = document.getElementById('tg-pre').textContent;
+  navigator.clipboard.writeText(txt).then(() => {
+    const btn = document.getElementById('cp-btn');
+    btn.textContent = '✅ Tersalin!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Salin Pesan'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {});
+}
+
+loadFromURL();
+</script>
+</body>
+</html>
