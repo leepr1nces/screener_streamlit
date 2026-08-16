@@ -1836,9 +1836,6 @@ def main():
                     '<td style="padding:8px 10px;text-align:center">' + build_vol_sparkline(r['code'], all_ohlcv) + '</td>'
                     '<td style="padding:8px 10px">' + badges + '</td>'
                     '<td style="padding:8px 10px;font-size:11px;color:#888">' + r.get('filter','') + '</td>'
-                    '<td style="padding:8px 10px;text-align:center">'
-                    + '<a href="' + (st.session_state.get('miracle_url','') + '&selected=' + r['code'] if '?' in st.session_state.get('miracle_url','') else 'https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html?data=' + r['code'] + ':' + str(r['close']) + '&selected=' + r['code']) + '" target="_blank" style="text-decoration:none;font-size:16px">🌟</a>'
-                    + '</td>'
                     '</tr>'
                 )
 
@@ -1853,7 +1850,6 @@ def main():
                 '<th style="padding:8px 10px;text-align:center;color:#888;font-weight:400">Vol Trend</th>'
                 '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Pola</th>'
                 '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Filter</th>'
-                '<th style="padding:8px 10px;text-align:center;color:#888;font-weight:400">🌟</th>'
                 '</tr></thead><tbody>' + ''.join(tbl_rows) + '</tbody></table>'
             )
             st.markdown(f"**{len(auto_sp)} saham terseleksi**")
