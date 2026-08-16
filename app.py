@@ -1545,195 +1545,91 @@ def main():
 
             if sel_r:
                 entry_price = sel_r['close']
+                from datetime import date
 
-                tpsl_html = f"""<!DOCTYPE html>
-<html><head><style>
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:12px}}
-.card{{background:#1e293b;border-radius:10px;padding:12px;margin-bottom:10px}}
-.lbl{{font-size:11px;color:#94a3b8;margin-bottom:2px}}
-.val{{font-size:17px;font-weight:600}}
-.stitle{{font-size:12px;font-weight:600}}
-.modes{{display:flex;gap:4px}}
-.mb{{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #334155;background:#0f172a;color:#94a3b8}}
-.atp{{background:#1D9E75!important;color:#fff!important;border-color:#1D9E75!important}}
-.asl{{background:#E24B4A!important;color:#fff!important;border-color:#E24B4A!important}}
-input[type=range]{{width:100%;accent-color:#1D9E75;margin:4px 0}}
-.slr{{accent-color:#E24B4A}}
-.rrow{{display:flex;justify-content:space-between;align-items:center;margin-top:4px}}
-.pt{{color:#1D9E75;font-size:12px;font-weight:500}}
-.ps{{color:#E24B4A;font-size:12px;font-weight:500}}
-.vt{{color:#1D9E75;font-size:17px;font-weight:700}}
-.vs{{color:#E24B4A;font-size:17px;font-weight:700}}
-input[type=number]{{width:100%;padding:7px 10px;border-radius:7px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px}}
-.rrc{{background:#0f172a;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}}
-.rrv{{font-size:18px;font-weight:700;color:#60a5fa}}
-.gbtn{{width:100%;padding:10px;font-size:14px;font-weight:700;border-radius:8px;cursor:pointer;background:#1D9E75;color:#fff;border:none;margin-bottom:10px}}
-.tgbox{{background:#17212b;border-radius:10px;padding:14px;display:none}}
-.tgpre{{font-family:monospace;font-size:12px;color:#e8e8e8;line-height:1.8;white-space:pre-wrap;margin-bottom:10px}}
-.cpbtn{{width:100%;padding:7px;font-size:12px;border-radius:7px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff}}
-.nonemsg{{font-size:12px;color:#64748b;padding:6px 0}}
-.rh{{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}}
-</style></head><body>
+                # Entry display
+                st.markdown(f"""<div style="background:var(--secondary-background-color);border-radius:10px;
+                    padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span style="font-size:12px;color:gray">Entry</span>
+                    <span style="font-size:18px;font-weight:700">{entry_price:,}</span>
+                </div>""", unsafe_allow_html=True)
 
-<div class="card">
-  <div class="lbl">Entry</div>
-  <div class="val">{entry_price:,}</div>
-</div>
+                # ── Take Profit ──────────────────────────
+                st.markdown("**🎯 Take Profit**")
+                col_tpr, col_tpp = st.columns([3,2])
+                with col_tpr:
+                    tp_pct = st.slider("TP %", 1.0, 30.0, 8.0, 0.5,
+                                       key='tp_r', label_visibility='collapsed')
+                with col_tpp:
+                    tp_price_input = st.number_input("Harga TP", min_value=1,
+                        value=int(round(entry_price * (1 + tp_pct/100))),
+                        step=1, key='tp_p', label_visibility='collapsed')
 
-<div style="margin-bottom:12px">
-  <div class="rh">
-    <span class="stitle">Take Profit</span>
-    <div class="modes">
-      <button class="mb atp" id="tp-bp" onclick="setMode('tp','pct')">%</button>
-      <button class="mb" id="tp-bh" onclick="setMode('tp','price')">Harga</button>
-    </div>
-  </div>
-  <div id="tp-pm">
-    <input type="range" id="tp-sl" min="1" max="30" step="0.5" value="8" oninput="syncTP()">
-    <div class="rrow"><span class="pt" id="tp-pl">+8.0%</span><span class="vt" id="tp-vh"></span></div>
-  </div>
-  <div id="tp-hm" style="display:none">
-    <input type="number" id="tp-in" min="1" step="1" placeholder="Harga TP" oninput="syncTPp()">
-    <div class="rrow" style="margin-top:6px"><span class="pt" id="tp-pl2"></span><span style="font-size:11px;color:#64748b">dari entry</span></div>
-  </div>
-</div>
+                # Sinkron: jika harga manual berbeda dari slider
+                tp_price_from_slider = int(round(entry_price * (1 + tp_pct/100)))
+                if tp_price_input != tp_price_from_slider:
+                    tp_pct_real = round((tp_price_input - entry_price) / entry_price * 100, 1)
+                    tp_final = tp_price_input
+                else:
+                    tp_pct_real = tp_pct
+                    tp_final = tp_price_from_slider
 
-<div style="margin-bottom:12px">
-  <div class="rh">
-    <span class="stitle">Stop Loss</span>
-    <div class="modes">
-      <button class="mb asl" id="sl-bp" onclick="setMode('sl','pct')">%</button>
-      <button class="mb" id="sl-bh" onclick="setMode('sl','price')">Harga</button>
-      <button class="mb" id="sl-bn" onclick="setMode('sl','none')">NONE</button>
-    </div>
-  </div>
-  <div id="sl-pm">
-    <input type="range" class="slr" id="sl-sl" min="1" max="15" step="0.5" value="4" oninput="syncSL()">
-    <div class="rrow"><span class="ps" id="sl-pl">-4.0%</span><span class="vs" id="sl-vh"></span></div>
-  </div>
-  <div id="sl-hm" style="display:none">
-    <input type="number" id="sl-in" min="1" step="1" placeholder="Harga SL" oninput="syncSLp()">
-    <div class="rrow" style="margin-top:6px"><span class="ps" id="sl-pl2"></span><span style="font-size:11px;color:#64748b">dari entry</span></div>
-  </div>
-  <div id="sl-nm" class="nonemsg" style="display:none">Tanpa Stop Loss</div>
-</div>
+                st.markdown(f"<div style='color:#1D9E75;font-weight:600;font-size:14px'>+{tp_pct_real:.1f}% → {tp_final:,}</div>",
+                            unsafe_allow_html=True)
 
-<div class="rrc" id="rrc">
-  <span style="font-size:12px;color:#94a3b8">Risk / Reward</span>
-  <span class="rrv" id="rrv">1 : 2.0</span>
-</div>
+                st.markdown("**🛑 Stop Loss**")
+                sl_none = st.checkbox("NONE (tanpa SL)", key='sl_none_chk')
 
-<button class="gbtn" onclick="gen()">⚡ Generate pesan Telegram</button>
+                sl_final = None
+                sl_pct_real = 0.0
+                if not sl_none:
+                    col_slr, col_slp = st.columns([3,2])
+                    with col_slr:
+                        sl_pct = st.slider("SL %", 1.0, 15.0, 4.0, 0.5,
+                                           key='sl_r', label_visibility='collapsed')
+                    with col_slp:
+                        sl_price_input = st.number_input("Harga SL", min_value=1,
+                            value=int(round(entry_price * (1 - sl_pct/100))),
+                            step=1, key='sl_p', label_visibility='collapsed')
 
-<div class="tgbox" id="tgb">
-  <div class="tgpre" id="tgp"></div>
-  <button class="cpbtn" onclick="cp()">Salin pesan</button>
-</div>
+                    sl_price_from_slider = int(round(entry_price * (1 - sl_pct/100)))
+                    if sl_price_input != sl_price_from_slider:
+                        sl_pct_real = round((entry_price - sl_price_input) / entry_price * 100, 1)
+                        sl_final = sl_price_input
+                    else:
+                        sl_pct_real = sl_pct
+                        sl_final = sl_price_from_slider
 
-<script>
-const E={entry_price}, CODE='{selected_code}';
-let tm='pct', sm='pct';
-function f(n){{return n.toLocaleString('id-ID')}}
+                    st.markdown(f"<div style='color:#E24B4A;font-weight:600;font-size:14px'>-{sl_pct_real:.1f}% → {sl_final:,}</div>",
+                                unsafe_allow_html=True)
 
-function init(){{
-  document.getElementById('tp-in').value=Math.round(E*1.08);
-  document.getElementById('sl-in').value=Math.round(E*0.96);
-  syncTP(); syncSL();
-}}
+                    # R/R
+                    rr = round(tp_pct_real / sl_pct_real, 1) if sl_pct_real > 0 else 0
+                    st.markdown(f"""<div style="background:var(--secondary-background-color);border-radius:8px;
+                        padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin:8px 0">
+                        <span style="font-size:12px;color:gray">⚖️ Risk / Reward</span>
+                        <span style="font-size:20px;font-weight:700;color:#60a5fa">1 : {rr}</span>
+                    </div>""", unsafe_allow_html=True)
 
-function setMode(w,m){{
-  if(w==='tp'){{
-    tm=m;
-    document.getElementById('tp-pm').style.display=m==='pct'?'block':'none';
-    document.getElementById('tp-hm').style.display=m==='price'?'block':'none';
-    [['tp-bp','pct'],['tp-bh','price']].forEach(([id,v])=>{{
-      document.getElementById(id).className='mb'+(m===v?' atp':'');
-    }});
-  }}else{{
-    sm=m;
-    document.getElementById('sl-pm').style.display=m==='pct'?'block':'none';
-    document.getElementById('sl-hm').style.display=m==='price'?'block':'none';
-    document.getElementById('sl-nm').style.display=m==='none'?'block':'none';
-    document.getElementById('rrc').style.display=m==='none'?'none':'flex';
-    [['sl-bp','pct'],['sl-bh','price'],['sl-bn','none']].forEach(([id,v])=>{{
-      document.getElementById(id).className='mb'+(m===v?' asl':'');
-    }});
-  }}
-}}
+                # Generate pesan
+                tgl = date.today().strftime('%d %b %Y')
+                sl_line = f"🛑 SL      :  {sl_final:,}  (-{sl_pct_real:.1f}%)" if not sl_none else "🛑 SL      :  NONE"
+                rr_line = f"\n⚖️ R/R     :  1 : {rr}" if not sl_none and sl_pct_real > 0 else ""
 
-function syncTP(){{
-  const p=parseFloat(document.getElementById('tp-sl').value);
-  const price=Math.round(E*(1+p/100));
-  document.getElementById('tp-pl').textContent='+'+p.toFixed(1)+'%';
-  document.getElementById('tp-vh').textContent=f(price);
-  document.getElementById('tp-in').value=price;
-  document.getElementById('tp-pl2').textContent='+'+p.toFixed(1)+'%';
-  updRR();
-}}
-function syncTPp(){{
-  const price=parseInt(document.getElementById('tp-in').value)||E;
-  const p=((price-E)/E*100);
-  document.getElementById('tp-pl2').textContent=(p>=0?'+':'')+p.toFixed(1)+'%';
-  document.getElementById('tp-sl').value=Math.min(30,Math.max(1,p));
-  document.getElementById('tp-pl').textContent=(p>=0?'+':'')+p.toFixed(1)+'%';
-  document.getElementById('tp-vh').textContent=f(price);
-  updRR();
-}}
-function syncSL(){{
-  const p=parseFloat(document.getElementById('sl-sl').value);
-  const price=Math.round(E*(1-p/100));
-  document.getElementById('sl-pl').textContent='-'+p.toFixed(1)+'%';
-  document.getElementById('sl-vh').textContent=f(price);
-  document.getElementById('sl-in').value=price;
-  document.getElementById('sl-pl2').textContent='-'+p.toFixed(1)+'%';
-  updRR();
-}}
-function syncSLp(){{
-  const price=parseInt(document.getElementById('sl-in').value)||E;
-  const p=((E-price)/E*100);
-  document.getElementById('sl-pl2').textContent='-'+p.toFixed(1)+'%';
-  document.getElementById('sl-sl').value=Math.min(15,Math.max(1,p));
-  document.getElementById('sl-pl').textContent='-'+p.toFixed(1)+'%';
-  document.getElementById('sl-vh').textContent=f(price);
-  updRR();
-}}
-function updRR(){{
-  if(sm==='none') return;
-  const tp=parseFloat(document.getElementById('tp-sl').value);
-  const sl=parseFloat(document.getElementById('sl-sl').value);
-  document.getElementById('rrv').textContent='1 : '+(tp/sl).toFixed(1);
-}}
-function gen(){{
-  const tpp=parseInt(document.getElementById('tp-in').value)||Math.round(E*1.08);
-  const tppc=((tpp-E)/E*100).toFixed(1);
-  const mo=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
-  const now=new Date();
-  const ds=now.getDate()+' '+mo[now.getMonth()]+' '+now.getFullYear();
-  let sl,rr='';
-  if(sm==='none'){{sl='🛑 SL      :  NONE';}}
-  else{{
-    const slp=parseInt(document.getElementById('sl-in').value)||Math.round(E*0.96);
-    const slpc=((E-slp)/E*100).toFixed(1);
-    sl='🛑 SL      :  '+f(slp)+'  (-'+slpc+'%)';
-    rr='\n⚖️ R/R     :  1 : '+(parseFloat(tppc)/parseFloat(slpc)).toFixed(1);
-  }}
-  const msg='🌟 MIRACLE CUAN 🌟\n━━━━━━━━━━━━━━━━━━━━\n\n📌 '+CODE+'\n📅 '+ds+'\n\n💰 Entry  :  '+f(E)+'\n🎯 TP      :  '+f(tpp)+'  (+'+tppc+'%)\n'+sl+rr+'\n\n⚠️ DYOR — bukan rekomendasi investasi.';
-  document.getElementById('tgp').textContent=msg;
-  document.getElementById('tgb').style.display='block';
-}}
-function cp(){{
-  navigator.clipboard.writeText(document.getElementById('tgp').textContent).catch(()=>{{}});
-  const b=document.querySelector('.cpbtn');
-  b.textContent='Tersalin! ✓';
-  setTimeout(()=>{{b.textContent='Salin pesan'}},2000);
-}}
-init();
-</script>
-</body></html>"""
+                pesan = f"""🌟 MIRACLE CUAN 🌟
+━━━━━━━━━━━━━━━━━━━━
 
-                import streamlit.components.v1 as components
-                components.html(tpsl_html, height=620, scrolling=False)
+📌 {selected_code}
+📅 {tgl}
+
+💰 Entry  :  {entry_price:,}
+🎯 TP      :  {tp_final:,}  (+{tp_pct_real:.1f}%)
+{sl_line}{rr_line}
+
+⚠️ DYOR — bukan rekomendasi investasi."""
+
+                st.code(pesan, language=None)
+                st.caption("Salin pesan di atas lalu kirim ke Telegram.")
             st.info(
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
