@@ -6,283 +6,319 @@
 <title>Miracle Cuan — Signal Generator</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:16px;font-size:14px}
-
-.header{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1e293b}
-.header-icon{font-size:20px}
-.header-title{font-size:15px;font-weight:700;color:#f1f5f9}
-.header-sub{font-size:11px;color:#64748b}
-
-.card{background:#1e293b;border-radius:10px;padding:12px 14px;margin-bottom:10px}
-.card-row{display:flex;justify-content:space-between;align-items:center}
-.lbl{font-size:11px;color:#64748b;margin-bottom:3px}
-.val{font-size:17px;font-weight:700;color:#f1f5f9}
-
-select,input[type=number]{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:14px;outline:none}
-select:focus,input[type=number]:focus{border-color:#1D9E75}
-
-.section{margin-bottom:12px}
-.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.section-title{font-size:13px;font-weight:600}
-.badge{padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700}
-.badge-tp{background:#1D9E75;color:#fff}
-.badge-sl{background:#E24B4A;color:#fff}
-
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-input[type=range]{width:100%;margin:4px 0;accent-color:#1D9E75;cursor:pointer}
-.sl-range{accent-color:#E24B4A}
-.range-labels{display:flex;justify-content:space-between;font-size:10px;color:#475569}
-
-.result-pill{border-radius:8px;padding:5px 10px;font-size:13px;font-weight:600;margin-top:6px;text-align:center}
-.result-tp{background:#0d2e1f;color:#1D9E75}
-.result-sl{background:#2d1111;color:#E24B4A}
-
-.rr-box{background:#0f172a;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.rr-val{font-size:20px;font-weight:700;color:#60a5fa}
-
-.sl-none-label{display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;cursor:pointer}
-.sl-none-label input{width:15px;height:15px;cursor:pointer;accent-color:#E24B4A}
-
-.gen-btn{width:100%;padding:11px;font-size:14px;font-weight:700;border-radius:9px;cursor:pointer;background:linear-gradient(135deg,#1D9E75,#0d7a5a);color:#fff;border:none;letter-spacing:0.3px;transition:opacity 0.15s}
-.gen-btn:hover{opacity:0.9}
-.gen-btn:active{opacity:0.8}
-
-.tg-box{background:#17212b;border-radius:10px;padding:14px;margin-top:10px;display:none}
-.tg-header{display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.06)}
-.tg-avatar{width:28px;height:28px;border-radius:50%;background:#2b5278;display:flex;align-items:center;justify-content:center;font-size:14px}
-.tg-name{font-size:12px;font-weight:600;color:#fff}
-.tg-sub{font-size:10px;color:#708499}
-.tg-signal{font-size:11px;font-weight:700;color:#E24B4A;letter-spacing:1px}
-.tg-pre{font-family:'Courier New',monospace;font-size:12px;color:#e8e8e8;line-height:1.8;white-space:pre-wrap;margin-bottom:10px}
-.cp-btn{width:100%;padding:8px;font-size:12px;border-radius:7px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;transition:background 0.15s}
-.cp-btn:hover{background:rgba(255,255,255,0.14)}
-.cp-btn.copied{background:#1D9E75;border-color:#1D9E75}
-
-.none-info{font-size:12px;color:#475569;padding:6px 0;font-style:italic}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:14px;font-size:13px}
+.header{display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #1e293b}
+.mode-tabs{display:flex;gap:0;margin-bottom:12px;border:1px solid #334155;border-radius:8px;overflow:hidden}
+.mode-tab{flex:1;padding:7px;font-size:12px;font-weight:600;cursor:pointer;text-align:center;background:#0f172a;color:#64748b;border:none}
+.mode-tab.active{background:#1e293b;color:#e2e8f0}
+.card{background:#1e293b;border-radius:10px;padding:11px 13px;margin-bottom:10px}
+.lbl{font-size:10px;color:#64748b;margin-bottom:3px}
+select,input[type=number],input[type=text]{width:100%;padding:7px 10px;border-radius:7px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:13px;outline:none}
+select:focus,input:focus{border-color:#1D9E75}
+.section{margin-bottom:10px}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.st{font-size:12px;font-weight:600}
+.badge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.btp{background:#1D9E75;color:#fff}
+.bsl{background:#E24B4A;color:#fff}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+input[type=range]{width:100%;margin:3px 0;accent-color:#1D9E75;cursor:pointer}
+.slr{accent-color:#E24B4A}
+.rl{display:flex;justify-content:space-between;font-size:9px;color:#475569}
+.rp{border-radius:7px;padding:4px 8px;font-size:12px;font-weight:600;margin-top:4px;text-align:center}
+.rtp{background:#0d2e1f;color:#1D9E75}
+.rsl{background:#2d1111;color:#E24B4A}
+.rrc{background:#0f172a;border-radius:7px;padding:6px 11px;display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.rrv{font-size:17px;font-weight:700;color:#60a5fa}
+.none-lbl{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;cursor:pointer}
+.none-lbl input{width:13px;height:13px;cursor:pointer;accent-color:#E24B4A}
+.gbtn{width:100%;padding:9px;font-size:13px;font-weight:700;border-radius:8px;cursor:pointer;background:linear-gradient(135deg,#1D9E75,#0d7a5a);color:#fff;border:none;margin-bottom:9px}
+.gbtn:active{opacity:0.85}
+.tgbox{background:#17212b;border-radius:9px;padding:12px;display:none;margin-bottom:10px}
+.tgpre{font-family:monospace;font-size:11px;color:#e8e8e8;line-height:1.8;white-space:pre-wrap;margin-bottom:8px}
+.cpbtn{width:100%;padding:6px;font-size:11px;border-radius:6px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff}
+.cpbtn.ok{background:#1D9E75;border-color:#1D9E75}
+.noneinfo{font-size:11px;color:#475569;padding:4px 0;font-style:italic}
+.set-btn{width:100%;padding:7px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;background:#1D9E75;color:#fff;border:none;margin-top:7px}
+.manual-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:5px}
+.chart-wrap{background:#1e293b;border-radius:10px;padding:12px;margin-bottom:10px}
+.chart-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.chart-title{font-size:12px;font-weight:600;color:#94a3b8}
+.chart-legend{display:flex;gap:10px;font-size:10px}
+.leg{display:flex;align-items:center;gap:3px}
+.leg-dot{width:8px;height:2px;border-radius:1px}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-icon">🌟</div>
+  <span style="font-size:18px">🌟</span>
   <div>
-    <div class="header-title">Miracle Cuan</div>
-    <div class="header-sub">Signal Generator — IDX Screener</div>
+    <div style="font-size:14px;font-weight:700;color:#f1f5f9">Miracle Cuan</div>
+    <div style="font-size:10px;color:#64748b">Signal Generator — IDX Screener</div>
   </div>
 </div>
 
-<!-- Pilih saham -->
-<div class="card" style="margin-bottom:12px">
-  <div class="lbl">Pilih Saham</div>
-  <select id="stock-sel" onchange="onStock()" style="margin-top:4px">
-    <option value="">-- pilih saham --</option>
-  </select>
+<div class="mode-tabs">
+  <button class="mode-tab active" onclick="setTab('sp')" id="tab-sp">📋 StockPick</button>
+  <button class="mode-tab" onclick="setTab('manual')" id="tab-manual">✏️ Manual</button>
 </div>
 
-<div id="main" style="display:none">
-
-  <!-- Entry -->
+<div id="sp-mode">
   <div class="card">
-    <div class="card-row">
-      <span class="lbl">Entry</span>
-      <span class="val" id="entry-v">—</span>
+    <div class="lbl">Pilih Saham</div>
+    <select id="stock-sel" onchange="onStock()" style="margin-top:4px">
+      <option value="">-- pilih saham --</option>
+    </select>
+  </div>
+</div>
+
+<div id="manual-mode" style="display:none">
+  <div class="card">
+    <div class="lbl">Input Manual</div>
+    <div class="manual-row">
+      <div><div class="lbl">Kode</div><input type="text" id="mc" placeholder="BBRI" oninput="this.value=this.value.toUpperCase()"></div>
+      <div><div class="lbl">Entry</div><input type="number" id="mp" placeholder="4500" min="1"></div>
+    </div>
+    <button class="set-btn" onclick="setManual()">✓ Set Entry</button>
+  </div>
+</div>
+
+<div id="calc" style="display:none">
+  <!-- Chart -->
+  <div class="chart-wrap" id="chart-wrap">
+    <div class="chart-hdr">
+      <span class="chart-title" id="chart-lbl">📊 Chart</span>
+      <div class="chart-legend">
+        <div class="leg"><div class="leg-dot" style="background:#60a5fa"></div><span style="color:#60a5fa">MA7</span></div>
+        <div class="leg"><div class="leg-dot" style="background:#f59e0b"></div><span style="color:#f59e0b">MA14</span></div>
+      </div>
+    </div>
+    <canvas id="cv-price" style="width:100%;display:block"></canvas>
+    <canvas id="cv-vol" style="width:100%;display:block;margin-top:4px"></canvas>
+    <div id="chart-empty" style="text-align:center;color:#475569;font-size:11px;padding:20px 0;display:none">Data chart tidak tersedia untuk saham ini</div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between">
+      <div><div class="lbl">Saham</div><div style="font-size:15px;font-weight:700" id="dc">—</div></div>
+      <div style="text-align:right"><div class="lbl">Entry</div><div style="font-size:17px;font-weight:700" id="de">—</div></div>
     </div>
   </div>
 
-  <!-- TP -->
   <div class="section">
-    <div class="section-head">
-      <span class="section-title">🎯 Take Profit</span>
-      <span class="badge badge-tp" id="tp-badge">+8.0%</span>
+    <div class="sh"><span class="st">🎯 Take Profit</span><span class="badge btp" id="tb">+8.0%</span></div>
+    <div class="g2">
+      <div><div class="lbl">%</div><input type="range" id="tr" min="1" max="30" step="0.5" value="8" oninput="tR()"><div class="rl"><span>1%</span><span>30%</span></div></div>
+      <div><div class="lbl">Harga TP</div><input type="number" id="tp" min="1" step="1" oninput="tP()"></div>
     </div>
-    <div class="grid2">
-      <div>
-        <div class="lbl">Persentase</div>
-        <input type="range" id="tp-r" min="1" max="30" step="0.5" value="8" oninput="tpFromR()">
-        <div class="range-labels"><span>1%</span><span>30%</span></div>
-      </div>
-      <div>
-        <div class="lbl">Harga TP</div>
-        <input type="number" id="tp-p" min="1" step="1" oninput="tpFromP()">
-      </div>
-    </div>
-    <div class="result-pill result-tp" id="tp-result">—</div>
+    <div class="rp rtp" id="tres">—</div>
   </div>
 
-  <!-- SL -->
   <div class="section">
-    <div class="section-head">
-      <span class="section-title">🛑 Stop Loss</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span class="badge badge-sl" id="sl-badge">-4.0%</span>
-        <label class="sl-none-label">
-          <input type="checkbox" id="sl-none" onchange="toggleNone()"> NONE
-        </label>
+    <div class="sh">
+      <span class="st">🛑 Stop Loss</span>
+      <div style="display:flex;gap:7px;align-items:center">
+        <span class="badge bsl" id="sb">-4.0%</span>
+        <label class="none-lbl"><input type="checkbox" id="sn" onchange="togN()"> NONE</label>
       </div>
     </div>
-    <div id="sl-inputs">
-      <div class="grid2">
-        <div>
-          <div class="lbl">Persentase</div>
-          <input type="range" class="sl-range" id="sl-r" min="1" max="15" step="0.5" value="4" oninput="slFromR()">
-          <div class="range-labels"><span>1%</span><span>15%</span></div>
-        </div>
-        <div>
-          <div class="lbl">Harga SL</div>
-          <input type="number" id="sl-p" min="1" step="1" oninput="slFromP()">
-        </div>
+    <div id="si">
+      <div class="g2">
+        <div><div class="lbl">%</div><input type="range" class="slr" id="sr" min="1" max="15" step="0.5" value="4" oninput="sR()"><div class="rl"><span>1%</span><span>15%</span></div></div>
+        <div><div class="lbl">Harga SL</div><input type="number" id="sl2" min="1" step="1" oninput="sP()"></div>
       </div>
-      <div class="result-pill result-sl" id="sl-result">—</div>
+      <div class="rp rsl" id="sres">—</div>
     </div>
-    <div class="none-info" id="sl-none-info" style="display:none">Trading tanpa Stop Loss — disiplin ya! 🙏</div>
+    <div class="noneinfo" id="sni" style="display:none">Tanpa Stop Loss 🙏</div>
   </div>
 
-  <!-- R/R -->
-  <div class="rr-box" id="rr-box">
-    <span style="font-size:12px;color:#64748b">⚖️ Risk / Reward</span>
-    <span class="rr-val" id="rr-v">1 : 2.0</span>
+  <div class="rrc" id="rrc"><span style="font-size:11px;color:#64748b">⚖️ Risk / Reward</span><span class="rrv" id="rrv">1 : 2.0</span></div>
+  <button class="gbtn" onclick="gen()">⚡ Generate Pesan Telegram</button>
+
+  <div class="tgbox" id="tgb">
+    <div class="tgpre" id="tgp"></div>
+    <button class="cpbtn" id="cpb" onclick="cp()">📋 Salin Pesan</button>
   </div>
-
-  <!-- Generate -->
-  <button class="gen-btn" onclick="gen()">⚡ Generate Pesan Telegram</button>
-
-  <!-- Output -->
-  <div class="tg-box" id="tg-box">
-    <div class="tg-header">
-      <div class="tg-avatar">📈</div>
-      <div style="flex:1">
-        <div class="tg-name">IDX Screener</div>
-        <div class="tg-sub">StockPick Signal</div>
-      </div>
-      <div class="tg-signal">SIGNAL</div>
-    </div>
-    <div class="tg-pre" id="tg-pre"></div>
-    <button class="cp-btn" id="cp-btn" onclick="cp()">📋 Salin Pesan</button>
-  </div>
-
 </div>
 
 <script>
-// ── Data saham diinject dari URL params ──────────────
-// Format: ?data=CODE1:PRICE1,CODE2:PRICE2,...
-let STOCKS = [];
-let E = 0, CODE = '';
+let E=0, CODE='', ALL_BARS={};
+const f=n=>n.toLocaleString('id-ID');
 
-function loadFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  const data = params.get('data');
-  if (data) {
-    STOCKS = data.split(',').map(s => {
-      const [code, price] = s.split(':');
-      return { code, price: parseInt(price) };
+function loadFromURL(){
+  const p=new URLSearchParams(window.location.search);
+  // Load saham list: data=CODE1:PRICE1,CODE2:PRICE2,...
+  const data=p.get('data');
+  const sel=document.getElementById('stock-sel');
+  if(data){
+    data.split(',').forEach(s=>{
+      const parts=s.split(':');
+      if(parts.length<2) return;
+      const code=parts[0], price=parseInt(parts[1]);
+      const opt=document.createElement('option');
+      opt.value=code+'|'+price;
+      opt.textContent=code+' — '+price.toLocaleString('id-ID');
+      sel.appendChild(opt);
     });
-  } else {
-    // Default contoh jika tidak ada params
-    STOCKS = [
-      {code:'ASLI', price:210},
-      {code:'CSIS', price:218},
-      {code:'ADMR', price:1680},
-    ];
   }
-  const sel = document.getElementById('stock-sel');
-  STOCKS.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.code + '|' + s.price;
-    opt.textContent = s.code + ' — ' + s.price.toLocaleString('id-ID');
-    sel.appendChild(opt);
+  // Load OHLCV: ohlcv=CODE~d:o:h:l:c:v|d:o:h:l:c:v;CODE2~...
+  const ohlcv=p.get('ohlcv');
+  if(ohlcv){
+    ohlcv.split(';').forEach(chunk=>{
+      const [code, barsStr]=chunk.split('~');
+      if(!code||!barsStr) return;
+      ALL_BARS[code]=barsStr.split('|').map(b=>{
+        const [d,o,h,l,c,v]=b.split(':');
+        return {d,o:+o,h:+h,l:+l,c:+c,v:+v};
+      });
+    });
+  }
+}
+
+function setTab(t){
+  document.getElementById('sp-mode').style.display=t==='sp'?'block':'none';
+  document.getElementById('manual-mode').style.display=t==='manual'?'block':'none';
+  document.getElementById('tab-sp').className='mode-tab'+(t==='sp'?' active':'');
+  document.getElementById('tab-manual').className='mode-tab'+(t==='manual'?' active':'');
+  document.getElementById('calc').style.display='none';
+}
+
+function initCalc(){
+  document.getElementById('dc').textContent=CODE;
+  document.getElementById('de').textContent=f(E);
+  document.getElementById('tp').value=Math.round(E*1.08);
+  document.getElementById('sl2').value=Math.round(E*0.96);
+  document.getElementById('sn').checked=false;
+  document.getElementById('si').style.display='block';
+  document.getElementById('sni').style.display='none';
+  document.getElementById('rrc').style.display='flex';
+  document.getElementById('sb').style.display='inline-block';
+  document.getElementById('calc').style.display='block';
+  document.getElementById('tgb').style.display='none';
+  tR(); sR();
+  drawChart();
+}
+
+function onStock(){
+  const v=document.getElementById('stock-sel').value;
+  if(!v){document.getElementById('calc').style.display='none';return;}
+  const parts=v.split('|'); CODE=parts[0]; E=parseInt(parts[1]);
+  initCalc();
+}
+function setManual(){
+  const c=document.getElementById('mc').value.trim().toUpperCase();
+  const p=parseInt(document.getElementById('mp').value);
+  if(!c||!p){alert('Isi kode dan harga!');return;}
+  CODE=c; E=p;
+  initCalc();
+}
+
+function tR(){const p=parseFloat(document.getElementById('tr').value);const pr=Math.round(E*(1+p/100));document.getElementById('tp').value=pr;document.getElementById('tb').textContent='+'+p.toFixed(1)+'%';document.getElementById('tres').textContent='🎯 '+f(pr)+'  (+'+p.toFixed(1)+'%)';uRR();}
+function tP(){const pr=parseInt(document.getElementById('tp').value)||E;const p=((pr-E)/E*100);document.getElementById('tr').value=Math.min(30,Math.max(1,p));document.getElementById('tb').textContent=(p>=0?'+':'')+p.toFixed(1)+'%';document.getElementById('tres').textContent='🎯 '+f(pr)+'  ('+(p>=0?'+':'')+p.toFixed(1)+'%)';uRR();}
+function sR(){const p=parseFloat(document.getElementById('sr').value);const pr=Math.round(E*(1-p/100));document.getElementById('sl2').value=pr;document.getElementById('sb').textContent='-'+p.toFixed(1)+'%';document.getElementById('sres').textContent='🛑 '+f(pr)+'  (-'+p.toFixed(1)+'%)';uRR();}
+function sP(){const pr=parseInt(document.getElementById('sl2').value)||E;const p=((E-pr)/E*100);document.getElementById('sr').value=Math.min(15,Math.max(1,p));document.getElementById('sb').textContent='-'+p.toFixed(1)+'%';document.getElementById('sres').textContent='🛑 '+f(pr)+'  (-'+p.toFixed(1)+'%)';uRR();}
+function togN(){const n=document.getElementById('sn').checked;document.getElementById('si').style.display=n?'none':'block';document.getElementById('sni').style.display=n?'block':'none';document.getElementById('rrc').style.display=n?'none':'flex';document.getElementById('sb').style.display=n?'none':'inline-block';}
+function uRR(){const t=parseFloat(document.getElementById('tr').value);const s=parseFloat(document.getElementById('sr').value);document.getElementById('rrv').textContent='1 : '+(t/s).toFixed(1);}
+
+function gen(){
+  const tpp=parseInt(document.getElementById('tp').value)||Math.round(E*1.08);
+  const tppc=((tpp-E)/E*100).toFixed(1);
+  const none=document.getElementById('sn').checked;
+  const mo=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+  const now=new Date(); const ds=now.getDate()+' '+mo[now.getMonth()]+' '+now.getFullYear();
+  let sl,rr='';
+  if(none){sl='🛑 SL      :  NONE';}
+  else{const slp=parseInt(document.getElementById('sl2').value)||Math.round(E*0.96);const slpc=((E-slp)/E*100).toFixed(1);sl='🛑 SL      :  '+f(slp)+'  (-'+slpc+'%)';rr='\n⚖️ R/R     :  1 : '+(parseFloat(tppc)/parseFloat(slpc)).toFixed(1);}
+  const msg='🌟 MIRACLE CUAN 🌟\n━━━━━━━━━━━━━━━━━━━━\n\n📌 '+CODE+'\n📅 '+ds+'\n\n💰 Entry  :  '+f(E)+'\n🎯 TP      :  '+f(tpp)+'  (+'+tppc+'%)\n'+sl+rr+'\n\n⚠️ DYOR — bukan rekomendasi investasi.';
+  document.getElementById('tgp').textContent=msg;
+  document.getElementById('tgb').style.display='block';
+  document.getElementById('tgb').scrollIntoView({behavior:'smooth'});
+}
+function cp(){
+  navigator.clipboard.writeText(document.getElementById('tgp').textContent).then(()=>{
+    const b=document.getElementById('cpb');b.textContent='✅ Tersalin!';b.className='cpbtn ok';
+    setTimeout(()=>{b.textContent='📋 Salin Pesan';b.className='cpbtn'},2000);
+  }).catch(()=>{});
+}
+
+// ── Candlestick Chart ──────────────────────────────────────────────
+function drawChart(){
+  const bars=ALL_BARS[CODE];
+  const empty=document.getElementById('chart-empty');
+  const cvP=document.getElementById('cv-price');
+  const cvV=document.getElementById('cv-vol');
+
+  if(!bars||bars.length<3){
+    cvP.style.display='none'; cvV.style.display='none';
+    empty.style.display='block';
+    return;
+  }
+  cvP.style.display='block'; cvV.style.display='block';
+  empty.style.display='none';
+  document.getElementById('chart-lbl').textContent='📊 '+CODE+' — '+bars.length+'H';
+
+  const W=document.getElementById('chart-wrap').clientWidth-24;
+  const HP=180, HV=55, PAD=6;
+  cvP.width=W; cvP.height=HP;
+  cvV.width=W; cvV.height=HV;
+
+  const ctx=cvP.getContext('2d');
+  const vctx=cvV.getContext('2d');
+  ctx.clearRect(0,0,W,HP);
+  vctx.clearRect(0,0,W,HV);
+
+  const n=bars.length;
+  const allP=bars.flatMap(b=>[b.h,b.l]);
+  const mn=Math.min(...allP), mx=Math.max(...allP), rng=mx-mn||1;
+  const bw=Math.max(2,Math.floor((W-PAD*2)/n*0.55));
+  const gap=(W-PAD*2)/n;
+
+  function toX(i){return PAD+i*gap+gap/2;}
+  function toY(v){return PAD+(HP-PAD*2)*(1-(v-mn)/rng);}
+
+  // Grid
+  ctx.strokeStyle='#334155'; ctx.lineWidth=0.5;
+  for(let i=0;i<=4;i++){
+    const y=PAD+(HP-PAD*2)*i/4;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    const val=mx-(mx-mn)*i/4;
+    ctx.fillStyle='#475569'; ctx.font='9px sans-serif';
+    ctx.fillText(Math.round(val).toLocaleString('id-ID'),2,y-2);
+  }
+
+  // MA
+  const closes=bars.map(b=>b.c);
+  function ma(arr,n){return arr.map((_,i)=>{const s=arr.slice(Math.max(0,i-n+1),i+1);return s.reduce((a,b)=>a+b,0)/s.length;});}
+  [[ma(closes,7),'#60a5fa'],[ma(closes,14),'#f59e0b']].forEach(([arr,col])=>{
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=1.2;
+    arr.forEach((v,i)=>{i===0?ctx.moveTo(toX(i),toY(v)):ctx.lineTo(toX(i),toY(v));});
+    ctx.stroke();
   });
-}
 
-function f(n) { return n.toLocaleString('id-ID'); }
+  // Candles
+  bars.forEach((b,i)=>{
+    const x=toX(i), green=b.c>=b.o;
+    const col=green?'#4ade80':'#f87171';
+    ctx.strokeStyle=col; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,toY(b.h)); ctx.lineTo(x,toY(b.l)); ctx.stroke();
+    const y1=toY(Math.max(b.o,b.c)), y2=toY(Math.min(b.o,b.c));
+    ctx.fillStyle=col; ctx.fillRect(x-bw/2, y1, bw, Math.max(1,y2-y1));
+    // Date label setiap 5 bar
+    if(i%5===0||i===n-1){
+      ctx.fillStyle='#475569'; ctx.font='8px sans-serif';
+      ctx.fillText(b.d, x-10, HP-2);
+    }
+  });
 
-function onStock() {
-  const v = document.getElementById('stock-sel').value;
-  if (!v) { document.getElementById('main').style.display = 'none'; return; }
-  const [code, price] = v.split('|');
-  CODE = code; E = parseInt(price);
-  document.getElementById('entry-v').textContent = f(E);
-  document.getElementById('tp-p').value = Math.round(E * 1.08);
-  document.getElementById('sl-p').value = Math.round(E * 0.96);
-  document.getElementById('main').style.display = 'block';
-  document.getElementById('tg-box').style.display = 'none';
-  tpFromR(); slFromR();
-}
-
-function tpFromR() {
-  const pct = parseFloat(document.getElementById('tp-r').value);
-  const price = Math.round(E * (1 + pct / 100));
-  document.getElementById('tp-p').value = price;
-  document.getElementById('tp-badge').textContent = '+' + pct.toFixed(1) + '%';
-  document.getElementById('tp-result').textContent = '🎯 ' + f(price) + '  (+' + pct.toFixed(1) + '%)';
-  updRR();
-}
-function tpFromP() {
-  const price = parseInt(document.getElementById('tp-p').value) || E;
-  const pct = ((price - E) / E * 100);
-  document.getElementById('tp-r').value = Math.min(30, Math.max(1, pct));
-  document.getElementById('tp-badge').textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
-  document.getElementById('tp-result').textContent = '🎯 ' + f(price) + '  (' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%)';
-  updRR();
-}
-function slFromR() {
-  const pct = parseFloat(document.getElementById('sl-r').value);
-  const price = Math.round(E * (1 - pct / 100));
-  document.getElementById('sl-p').value = price;
-  document.getElementById('sl-badge').textContent = '-' + pct.toFixed(1) + '%';
-  document.getElementById('sl-result').textContent = '🛑 ' + f(price) + '  (-' + pct.toFixed(1) + '%)';
-  updRR();
-}
-function slFromP() {
-  const price = parseInt(document.getElementById('sl-p').value) || E;
-  const pct = ((E - price) / E * 100);
-  document.getElementById('sl-r').value = Math.min(15, Math.max(1, pct));
-  document.getElementById('sl-badge').textContent = '-' + pct.toFixed(1) + '%';
-  document.getElementById('sl-result').textContent = '🛑 ' + f(price) + '  (-' + pct.toFixed(1) + '%)';
-  updRR();
-}
-function toggleNone() {
-  const none = document.getElementById('sl-none').checked;
-  document.getElementById('sl-inputs').style.display = none ? 'none' : 'block';
-  document.getElementById('sl-none-info').style.display = none ? 'block' : 'none';
-  document.getElementById('rr-box').style.display = none ? 'none' : 'flex';
-  document.getElementById('sl-badge').style.display = none ? 'none' : 'inline-block';
-}
-function updRR() {
-  const tp = parseFloat(document.getElementById('tp-r').value);
-  const sl = parseFloat(document.getElementById('sl-r').value);
-  document.getElementById('rr-v').textContent = '1 : ' + (tp / sl).toFixed(1);
-}
-
-function gen() {
-  const tpp = parseInt(document.getElementById('tp-p').value) || Math.round(E * 1.08);
-  const tppc = ((tpp - E) / E * 100).toFixed(1);
-  const none = document.getElementById('sl-none').checked;
-  const mo = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
-  const now = new Date();
-  const ds = now.getDate() + ' ' + mo[now.getMonth()] + ' ' + now.getFullYear();
-  let sl, rr = '';
-  if (none) {
-    sl = '🛑 SL      :  NONE';
-  } else {
-    const slp = parseInt(document.getElementById('sl-p').value) || Math.round(E * 0.96);
-    const slpc = ((E - slp) / E * 100).toFixed(1);
-    sl = '🛑 SL      :  ' + f(slp) + '  (-' + slpc + '%)';
-    rr = '\n⚖️ R/R     :  1 : ' + (parseFloat(tppc) / parseFloat(slpc)).toFixed(1);
-  }
-  const msg = '🌟 MIRACLE CUAN 🌟\n━━━━━━━━━━━━━━━━━━━━\n\n📌 ' + CODE + '\n📅 ' + ds + '\n\n💰 Entry  :  ' + f(E) + '\n🎯 TP      :  ' + f(tpp) + '  (+' + tppc + '%)\n' + sl + rr + '\n\n⚠️ DYOR — bukan rekomendasi investasi.';
-  document.getElementById('tg-pre').textContent = msg;
-  document.getElementById('tg-box').style.display = 'block';
-  document.getElementById('tg-box').scrollIntoView({behavior:'smooth'});
-}
-
-function cp() {
-  const txt = document.getElementById('tg-pre').textContent;
-  navigator.clipboard.writeText(txt).then(() => {
-    const btn = document.getElementById('cp-btn');
-    btn.textContent = '✅ Tersalin!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋 Salin Pesan'; btn.classList.remove('copied'); }, 2000);
-  }).catch(() => {});
+  // Volume
+  const maxV=Math.max(...bars.map(b=>b.v))||1;
+  bars.forEach((b,i)=>{
+    const x=toX(i), h=Math.max(2,b.v/maxV*(HV-4));
+    const green=i===0||b.v>=bars[i-1].v;
+    vctx.fillStyle=green?'#1D9E75':'#EF9F27';
+    vctx.fillRect(x-bw/2, HV-h, bw, h);
+  });
 }
 
 loadFromURL();
