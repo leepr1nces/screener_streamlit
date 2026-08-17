@@ -1048,6 +1048,81 @@ def main():
         else:
             st.caption("Buka tab Stockpick dulu untuk data SP")
         st.divider()
+
+        # ── Saham Lookup ─────────────────────────────────────
+        st.markdown("**🔍 Cari Pola Saham**")
+        lookup_wl_only = st.checkbox("WL Only", value=True, key='lookup_wl')
+        lookup_code = st.text_input("Kode saham", placeholder="cth: ASLI", key='lookup_code',
+                                     label_visibility='collapsed').strip().upper()
+        if st.button("Cari", key='lookup_btn', use_container_width=True):
+            if lookup_code and 'all_ohlcv' in st.session_state:
+                _ao = st.session_state['all_ohlcv']
+                _av = st.session_state['avg_vols']
+                _tg = st.session_state['target']
+                _in_wl = lookup_code in ALL_WL
+
+                if lookup_wl_only and not _in_wl:
+                    st.warning(f"{lookup_code} tidak ada di WL")
+                elif lookup_code not in _ao:
+                    st.warning(f"{lookup_code} tidak ada di data")
+                else:
+                    st.markdown(f"**{lookup_code}** {'★' if _in_wl else ''}")
+                    found = []
+
+                    # Cek semua pola
+                    _boa_f, _boa_n = scan_boa(_ao, _av, _tg)
+                    if any(r['code']==lookup_code for r in _boa_f):
+                        found.append("✅ **BOA Full**")
+                    elif any(r['code']==lookup_code for r in _boa_n):
+                        found.append("🔵 **BOA~** (near)")
+
+                    _p1 = scan_p1(_ao, _av, _tg)
+                    r_p1 = next((r for r in _p1 if r['code']==lookup_code), None)
+                    if r_p1: found.append(f"📉 **P1** — {r_p1.get('signal','')}")
+
+                    _p3 = scan_p3(_ao, _av, _tg)
+                    r_p3 = next((r for r in _p3 if r['code']==lookup_code), None)
+                    if r_p3: found.append(f"🔄 **P3** — {r_p3.get('signal','')}")
+
+                    _ol = scan_ol_seq(_ao, _av, _tg)
+                    r_ol = next((r for r in _ol if r['code']==lookup_code), None)
+                    if r_ol: found.append(f"🕯️ **OL** — {r_ol.get('ol_count',0)} hari")
+
+                    _sv = scan_sv(_ao, _av, _tg)
+                    if any(r['code']==lookup_code for r in _sv):
+                        found.append("💰 **SV** — Spike Valuasi")
+
+                    _al = scan_alert(_ao, _av, _tg)
+                    if any(r['code']==lookup_code for r in _al):
+                        found.append("🚨 **Alert** — Reversal")
+
+                    _bos = scan_bos(_ao, _av, _tg)
+                    r_bos = next((r for r in _bos if r['code']==lookup_code), None)
+                    if r_bos: found.append(f"🚀 **BOS** — {r_bos.get('entry','')}")
+
+                    _boh = scan_boh(_ao, _av, _tg)
+                    r_boh = next((r for r in _boh if r['code']==lookup_code), None)
+                    if r_boh: found.append(f"📈 **BOH** — {r_boh.get('entry','')}")
+
+                    _ttx = scan_ttx(_ao, _av, _tg)
+                    r_ttx = next((r for r in _ttx if r['code']==lookup_code), None)
+                    if r_ttx: found.append(f"⏰ **TTx** — {r_ttx.get('status','')}")
+
+                    _sp = scan_stockpick(_ao, _av, _tg)
+                    r_sp = next((r for r in _sp if r['code']==lookup_code), None)
+                    if r_sp: found.append(f"🛒 **StockPick** — Chg {r_sp.get('chg',0):+.2f}%")
+
+                    if found:
+                        for pola in found:
+                            st.markdown(f"- {pola}")
+                    else:
+                        st.info("Tidak ada pola aktif hari ini")
+            elif not lookup_code:
+                st.warning("Masukkan kode saham")
+            else:
+                st.info("Data belum tersedia — buka dulu dari folder data/")
+
+        st.divider()
         st.markdown("**Pola:**")
         col1,col2 = st.columns(2)
         show_boa   = col1.checkbox("BOA",    value=True)
@@ -1092,6 +1167,9 @@ def main():
                 dates.append(bars[-1]['date'])
                 for b in bars: all_dates.add(b['date'])
         target = max(dates) if dates else None
+        st.session_state['all_ohlcv'] = all_ohlcv
+        st.session_state['avg_vols'] = avg_vols
+        st.session_state['target'] = target
         if not target:
             st.error("Tidak bisa baca tanggal."); return
 
