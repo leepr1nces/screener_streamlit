@@ -1167,9 +1167,6 @@ def main():
                 dates.append(bars[-1]['date'])
                 for b in bars: all_dates.add(b['date'])
         target = max(dates) if dates else None
-        st.session_state['all_ohlcv'] = all_ohlcv
-        st.session_state['avg_vols'] = avg_vols
-        st.session_state['target'] = target
         if not target:
             st.error("Tidak bisa baca tanggal."); return
 
