@@ -1055,7 +1055,7 @@ def main():
         lookup_code = st.text_input("Kode saham", placeholder="cth: ASLI", key='lookup_code',
                                      label_visibility='collapsed').strip().upper()
         if st.button("Cari", key='lookup_btn', use_container_width=True):
-            if lookup_code and 'all_ohlcv' in st.session_state:
+            if lookup_code and 'all_ohlcv' in st.session_state and 'avg_vols' in st.session_state and 'target' in st.session_state:
                 _ao = st.session_state['all_ohlcv']
                 _av = st.session_state['avg_vols']
                 _tg = st.session_state['target']
@@ -1120,7 +1120,7 @@ def main():
             elif not lookup_code:
                 st.warning("Masukkan kode saham")
             else:
-                st.info("Data belum tersedia — buka dulu dari folder data/")
+                st.info("Data belum tersedia — tunggu scan selesai dulu")
 
         st.divider()
         st.markdown("**Pola:**")
