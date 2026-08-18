@@ -121,6 +121,7 @@ def vol_ratio(b, avg_vol):
 # ══════════════════════════════════════════════════════════════════════════════
 def load_uploaded(uploaded_files):
     all_ohlcv = {}
+    uploaded_files = sorted(uploaded_files, key=lambda f: f.name)  # urut kronologis by nama file
     for uf in uploaded_files:
         suffix = '.xlsx' if uf.name.endswith('.xlsx') else '.xls'
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -163,11 +164,10 @@ def load_uploaded(uploaded_files):
             })
         os.unlink(tmp_path)
     for code in all_ohlcv:
-        seen = set(); deduped = []
+        latest_per_date = {}
         for b in sorted(all_ohlcv[code], key=lambda x: x['date']):
-            if b['date'] not in seen:
-                seen.add(b['date']); deduped.append(b)
-        all_ohlcv[code] = deduped
+            latest_per_date[b['date']] = b  # overwrite -> snapshot terakhir hari itu yang dipakai
+        all_ohlcv[code] = [latest_per_date[d] for d in sorted(latest_per_date.keys())]
     return all_ohlcv
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -754,11 +754,10 @@ def load_from_folder(folder="data"):
                 'Val': float(row.get('Value') or 0),
             })
     for code in all_ohlcv:
-        seen = set(); deduped = []
+        latest_per_date = {}
         for b in sorted(all_ohlcv[code], key=lambda x: x['date']):
-            if b['date'] not in seen:
-                seen.add(b['date']); deduped.append(b)
-        all_ohlcv[code] = deduped
+            latest_per_date[b['date']] = b  # overwrite -> snapshot terakhir hari itu yang dipakai
+        all_ohlcv[code] = [latest_per_date[d] for d in sorted(latest_per_date.keys())]
     return all_ohlcv
 
 
@@ -1096,16 +1095,23 @@ def main():
         avg_vols = {code: get_avg_vol(bars) for code,bars in all_ohlcv.items()}
         data_today = {c:b for c,b in all_ohlcv.items() if b and b[-1]['date']==target}
 
-        # ── Auto-update TP/SL ke Google Sheet Trading Log (1x per tanggal target) ──
-        _tpsl_key = f"tpsl_sent_{target}"
+        # ── Auto-update TP/SL ke Google Sheet Trading Log ──
+        # Dikirim ulang tiap kali data (Close/High/Low) hari ini berubah — bukan cuma
+        # sekali per tanggal — supaya upload intraday berikutnya (11:59, 14:30, 16:10)
+        # tetap ter-refresh, bukan hanya nempel ke snapshot pertama hari itu.
+        _updates = [
+            {"code": c, "high": b[-1].get('H'), "low": b[-1].get('L'), "close": b[-1].get('C')}
+            for c, b in data_today.items()
+            if b[-1].get('H') is not None and b[-1].get('L') is not None
+        ]
+        import hashlib as _hashlib
+        _fingerprint = _hashlib.md5(
+            str(sorted((u['code'], u['high'], u['low'], u['close']) for u in _updates)).encode()
+        ).hexdigest()[:12]
+        _tpsl_key = f"tpsl_sent_{target}_{_fingerprint}"
         if not st.session_state.get(_tpsl_key):
             try:
                 import requests as _requests
-                _updates = [
-                    {"code": c, "high": b[-1].get('H'), "low": b[-1].get('L'), "close": b[-1].get('C')}
-                    for c, b in data_today.items()
-                    if b[-1].get('H') is not None and b[-1].get('L') is not None
-                ]
                 if _updates:
                     _resp = _requests.post(
                         "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
