@@ -1229,6 +1229,7 @@ def main():
                 'day_ago': day_ago,
                 'entry_close': int(bar_d['C']),
                 'curr_close': int(bar_today['C']),
+                'entry_date': d_hdr,
             }
 
     if heatmap_kandidat:
@@ -1237,6 +1238,22 @@ def main():
             if gain >= 0:   return '#9FE1CB','#085041'
             if gain > -3:   return '#EF9F27','#412402'
             return '#F0997B','#4A1B0C'
+
+        # Cek: apakah saham ini juga masuk kriteria StockPick PADA HARI ENTRY-nya (T-2/3/4)?
+        def was_stockpick_on(code, entry_date):
+            bars_full = all_ohlcv.get(code, [])
+            idx = next((i for i,b in enumerate(bars_full) if b['date']==entry_date), None)
+            if idx is None or idx < 2: return False
+            bars_trunc = bars_full[:idx+1]
+            avg_vol = avg_vols.get(code, 1.0)
+            try:
+                res = scan_stockpick({code: bars_trunc}, {code: avg_vol}, entry_date)
+                return len(res) > 0
+            except Exception:
+                return False
+
+        for code, info in heatmap_kandidat.items():
+            info['was_sp'] = was_stockpick_on(code, info['entry_date'])
 
         # Kumpulkan pola aktif per saham hari ini
         active_pola = {}
@@ -1268,11 +1285,13 @@ def main():
             sign_t = '+' if info['chg_today'] > 0 else ''
 
             # Badge pola
-            polas = active_pola.get(code, [])
+            polas = list(active_pola.get(code, []))
+            if info.get('was_sp'):
+                polas.append(f"SP@T-{info['day_ago']}")
             badge_html = ''
             if polas:
                 for p in polas:
-                    pc = POLA_COLORS.get(p, '#D3D1C7')
+                    pc = '#FFD166' if p.startswith('SP@T-') else POLA_COLORS.get(p, '#D3D1C7')
                     badge_html += '<span style="background:' + pc + ';color:#2C2C2A;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px;">' + p + '</span>'
                 badge_html = '<div style="margin-top:4px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px;">' + badge_html + '</div>'
 
