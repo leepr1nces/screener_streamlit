@@ -4,6 +4,7 @@ Streamlit Web App — Standalone (semua kode dalam 1 file)
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import glob
@@ -1037,16 +1038,11 @@ def main():
         st.divider()
         show_only_wl = st.toggle("★ Hanya WL", value=True)
         st.divider()
-        # Miracle Cuan URL — ambil dari session atau default
-        _mc_url = st.session_state.get('miracle_url', '')
-        if not _mc_url:
-            # Belum ada data scan — buka tanpa params (mode manual tersedia)
-            _mc_url = 'https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html'
-        st.link_button("🌟 Miracle Cuan", _mc_url, use_container_width=True)
-        if st.session_state.get('miracle_url'):
-            st.caption("Data SP hari ini sudah terisi")
+        # Miracle Cuan — sekarang jadi tab di dalam app (lihat tab "🌟 Miracle Cuan")
+        if st.session_state.get('miracle_data'):
+            st.caption("🌟 Miracle Cuan: data SP hari ini sudah terisi (lihat tab)")
         else:
-            st.caption("Buka tab Stockpick dulu untuk data SP")
+            st.caption("🌟 Miracle Cuan: buka tab Stockpick dulu untuk data SP")
         st.divider()
 
         st.divider()
@@ -1100,6 +1096,30 @@ def main():
         avg_vols = {code: get_avg_vol(bars) for code,bars in all_ohlcv.items()}
         data_today = {c:b for c,b in all_ohlcv.items() if b and b[-1]['date']==target}
 
+        # ── Auto-update TP/SL ke Google Sheet Trading Log (1x per tanggal target) ──
+        _tpsl_key = f"tpsl_sent_{target}"
+        if not st.session_state.get(_tpsl_key):
+            try:
+                import requests as _requests
+                _updates = [
+                    {"code": c, "high": b[-1].get('H'), "low": b[-1].get('L')}
+                    for c, b in data_today.items()
+                    if b[-1].get('H') is not None and b[-1].get('L') is not None
+                ]
+                if _updates:
+                    _resp = _requests.post(
+                        "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                        json={"action": "bulk_update_tpsl", "date": target, "updates": _updates},
+                        timeout=15
+                    )
+                    st.session_state["tpsl_last_result"] = (
+                        f"✅ Cek TP/SL {target}: {_resp.json().get('result',{})}" if _resp.ok
+                        else f"⚠️ Update TP/SL gagal (HTTP {_resp.status_code})"
+                    )
+                st.session_state[_tpsl_key] = True
+            except Exception as _e:
+                st.session_state["tpsl_last_result"] = f"⚠️ Update TP/SL gagal: {_e}"
+
         dt = datetime.strptime(target,'%Y-%m-%d')
         delta = 3 if dt.weekday()==4 else 1
         next_date = (dt+timedelta(days=delta)).strftime('%Y-%m-%d')
@@ -1119,11 +1139,10 @@ def main():
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
         auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list, all_ohlcv, target)
 
-        # ── Build Miracle Cuan URL dengan OHLCV 21H ──────────────────
+        # ── Build data OHLCV untuk Miracle Cuan (embed langsung, bukan URL luar) ──
         try:
             _sp_wl_mc = [r for r in sp_list if r.get('in_wl')]
             _sp_data_mc = ','.join([f"{r['code']}:{r['close']}" for r in _sp_wl_mc[:30]])
-            _mc_base = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
             _ohlcv_parts_mc = []
             for _r in _sp_wl_mc[:10]:
                 _c = _r['code']
@@ -1135,7 +1154,8 @@ def main():
                 ])
                 if _bs: _ohlcv_parts_mc.append(f"{_c}~{_bs}")
             _ohlcv_str_mc = ';'.join(_ohlcv_parts_mc)
-            st.session_state['miracle_url'] = f"{_mc_base}?data={_sp_data_mc}&ohlcv={_ohlcv_str_mc}"
+            st.session_state['miracle_data'] = _sp_data_mc
+            st.session_state['miracle_ohlcv'] = _ohlcv_str_mc
         except: pass
 
     # ── Info bar ──────────────────────────────────────────────────────────────
@@ -1144,6 +1164,8 @@ def main():
     c2.metric("🎯 Target", next_date)
     c3.metric("📊 File",   f"{len(uploaded_files) if uploaded_files else len(glob.glob('data/*.xls')+glob.glob('data/*.xlsx'))} file")
     c4.metric("🏢 Saham",  f"{len(data_today)} saham")
+    if st.session_state.get("tpsl_last_result"):
+        st.caption(st.session_state["tpsl_last_result"])
 
     # ── Summary chips ─────────────────────────────────────────────────────────
     cols = st.columns(4)
@@ -1271,7 +1293,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -1937,6 +1959,33 @@ def main():
                 render_candlestick(sel_tr, all_ohlcv, n_days=30, chart_key='tr_chart2_'+sel_tr)
         else:
             st.info("Belum ada data track record. Upload lebih banyak file screener ke folder data/.")
+
+    # Tab Miracle Cuan
+    with tabs[13]:
+        _mc_data_embed = st.session_state.get('miracle_data', '')
+        _mc_ohlcv_embed = st.session_state.get('miracle_ohlcv', '')
+        if not _mc_data_embed:
+            st.caption("Belum ada data SP hari ini — buka tab Stockpick dulu supaya data OHLCV terisi otomatis, atau isi manual di kalkulator di bawah.")
+        else:
+            st.caption("Data SP hari ini sudah terisi otomatis ke kalkulator di bawah.")
+        try:
+            with open('miracle_cuan.html', 'r', encoding='utf-8') as _f:
+                _mc_html = _f.read()
+            import json as _json
+            _inject = (
+                "<script>\n"
+                f"window.MC_PRESET_DATA = {_json.dumps(_mc_data_embed)};\n"
+                f"window.MC_PRESET_OHLCV = {_json.dumps(_mc_ohlcv_embed)};\n"
+                "</script>\n"
+            )
+            _marker = "<script>\nlet E=0, CODE='', ALL_BARS={}, TP1_PCT=5.0;"
+            if _marker in _mc_html:
+                _mc_html = _mc_html.replace(_marker, _inject + _marker, 1)
+            else:
+                _mc_html = _inject + _mc_html
+            components.html(_mc_html, height=1500, scrolling=True)
+        except FileNotFoundError:
+            st.error("File `miracle_cuan.html` tidak ditemukan di root repo. Upload file tersebut ke repo `screener_streamlit` (sejajar dengan app.py).")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
