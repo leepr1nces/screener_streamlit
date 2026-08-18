@@ -2012,6 +2012,76 @@ def main():
         except FileNotFoundError:
             st.error("File `miracle_cuan.html` tidak ditemukan di root repo. Upload file tersebut ke repo `screener_streamlit` (sejajar dengan app.py).")
 
+        # ── Statistik & Win Rate (dari Google Sheet Dashboard + Trading Log) ──
+        st.divider()
+        st.subheader("📊 Statistik Trading Log")
+        _mc_webhook = "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec"
+
+        _colr1, _colr2 = st.columns([1,5])
+        if _colr1.button("🔄 Refresh"):
+            st.session_state.pop('mc_stats_cache', None)
+
+        if 'mc_stats_cache' not in st.session_state:
+            try:
+                import requests as _requests
+                _sresp = _requests.get(_mc_webhook, params={'action':'get_stats'}, timeout=15)
+                st.session_state['mc_stats_cache'] = _sresp.json() if _sresp.ok else {'status':'error','message':f'HTTP {_sresp.status_code}'}
+            except Exception as _e:
+                st.session_state['mc_stats_cache'] = {'status':'error','message':str(_e)}
+
+        _sd = st.session_state.get('mc_stats_cache', {})
+        if _sd.get('status') == 'ok':
+            stats = _sd.get('stats', {})
+            entries = _sd.get('entries', [])
+
+            m1,m2,m3,m4,m5 = st.columns(5)
+            m1.metric("Total Entry", stats.get('Total Entry', '-'))
+            m2.metric("TP1 Hit", stats.get('TP1 Hit', '-'))
+            m3.metric("TP2 Hit", stats.get('TP2 Hit', '-'))
+            m4.metric("SL Hit", stats.get('SL Hit', '-'))
+            m5.metric("Running", stats.get('Running', '-'))
+
+            w1,w2,w3,w4 = st.columns(4)
+            w1.metric("Win Rate TP1", stats.get('Win Rate TP1', '-'))
+            w2.metric("Win Rate TP2", stats.get('Win Rate TP2', '-'))
+            w3.metric("Avg Hari TP1", stats.get('Avg Hari TP1', '-'))
+            w4.metric("Avg Hari TP2", stats.get('Avg Hari TP2', '-'))
+
+            running_entries = [e for e in entries if e.get('status') in ('Running','Partial')]
+            if running_entries:
+                running_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
+                st.markdown(f"**{len(running_entries)} entry masih berjalan**")
+                _rows = []
+                for e in running_entries:
+                    chg_raw = str(e.get('chg_berjalan','') or '')
+                    chg_c = '#f87171' if chg_raw.startswith('-') else ('#4ade80' if chg_raw not in ('','0.00%') else '#888')
+                    _rows.append(
+                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                        f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
+                        f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
+                        f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:center;font-size:11px">{e.get("status","")}</td>'
+                        '</tr>'
+                    )
+                _tbl = (
+                    '<table style="width:100%;border-collapse:collapse">'
+                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
+                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
+                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Status</th>'
+                    '</tr></thead><tbody>' + ''.join(_rows) + '</tbody></table>'
+                )
+                st.html(_tbl)
+            else:
+                st.caption("Tidak ada entry yang sedang berjalan.")
+        else:
+            st.caption(f"⚠️ Gagal ambil statistik: {_sd.get('message','unknown error')}")
+
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
 
