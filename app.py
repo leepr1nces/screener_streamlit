@@ -1102,7 +1102,7 @@ def main():
             try:
                 import requests as _requests
                 _updates = [
-                    {"code": c, "high": b[-1].get('H'), "low": b[-1].get('L')}
+                    {"code": c, "high": b[-1].get('H'), "low": b[-1].get('L'), "close": b[-1].get('C')}
                     for c, b in data_today.items()
                     if b[-1].get('H') is not None and b[-1].get('L') is not None
                 ]
