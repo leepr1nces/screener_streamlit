@@ -2079,6 +2079,42 @@ def main():
                 st.html(_tbl)
             else:
                 st.caption("Tidak ada entry yang sedang berjalan.")
+
+            # ── Entry yang sudah closed (TP2 Hit / SL Hit) ──
+            closed_entries = [e for e in entries if e.get('status') in ('TP2 Hit','SL Hit')]
+            if closed_entries:
+                closed_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
+                st.markdown(f"**{len(closed_entries)} entry sudah match (closed)**")
+                _rows2 = []
+                for e in closed_entries:
+                    is_tp2 = e.get('status') == 'TP2 Hit'
+                    result_label = '✅ TP2 Hit' if is_tp2 else '🔴 SL Hit'
+                    result_color = '#4ade80' if is_tp2 else '#f87171'
+                    gain_raw = str(e.get('tp2_pct','') if is_tp2 else e.get('sl_pct',''))
+                    gain_display = gain_raw if is_tp2 else ('-' + gain_raw if gain_raw and not gain_raw.startswith('-') else gain_raw)
+                    hari_final = e.get('hari_tp2','') if is_tp2 else e.get('hari_sl','')
+                    _rows2.append(
+                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                        f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
+                        f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{result_color};font-weight:600">{gain_display}</td>'
+                        f'<td style="padding:6px 8px;text-align:center;font-size:12px">{hari_final}</td>'
+                        f'<td style="padding:6px 8px;text-align:center;font-size:11px;color:{result_color}">{result_label}</td>'
+                        '</tr>'
+                    )
+                _tbl2 = (
+                    '<table style="width:100%;border-collapse:collapse">'
+                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Gain%</th>'
+                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
+                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Result</th>'
+                    '</tr></thead><tbody>' + ''.join(_rows2) + '</tbody></table>'
+                )
+                st.html(_tbl2)
         else:
             st.caption(f"⚠️ Gagal ambil statistik: {_sd.get('message','unknown error')}")
 
