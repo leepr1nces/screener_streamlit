@@ -1827,6 +1827,7 @@ def main():
     # Tab Divergen
     with tabs[9]:
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
+        lst = sorted(lst, key=lambda r: r['chg'])
         st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
         st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window. Ditampilkan maksimal 65 saham dengan sinyal paling kuat (rasio volume terkecil).")
         if lst:
