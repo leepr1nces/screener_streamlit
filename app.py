@@ -627,7 +627,7 @@ def scan_bos(all_ohlcv, avg_vols, target, window=7):
 # BOH — Breakout High
 # ══════════════════════════════════════════════════════════════════════════════
 def scan_divergen(all_ohlcv, avg_vols, target, lookback_min=15, lookback_max=20,
-                   vol_ratio_max=0.7, low_tolerance=0.98, price_dip_max=-3.0,
+                   vol_ratio_max=0.85, low_tolerance=0.98, price_dip_max=-3.0,
                    spike_vol_mult=1.5):
     """Pola Divergen: harga basing/naik (higher low) sementara volume TREN-nya mengering
     dalam 15-20 hari terakhir — mirip yang ditarik manual di TradingView (garis support
