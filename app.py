@@ -703,7 +703,7 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
         if best:
             results.append(best)
     results.sort(key=lambda x: (-int(x['in_wl']), x['vol_ratio_pct'], -x['score']))
-    return results
+    return results[:65]
 
 
 def scan_boh(all_ohlcv, avg_vols, target, min_trigger=20.0, min_gap=5.0, max_days=10):
@@ -1086,6 +1086,21 @@ def build_vol_sparkline(code, all_ohlcv):
     for i_s, v_s in enumerate(vols_s):
         h_s = max(2, int(v_s / mx_s * 18))
         col_s = '#1D9E75' if i_s == 0 or v_s >= vols_s[i_s-1] else '#EF9F27'
+        parts_s.append('<span style="display:inline-block;width:3px;height:' + str(h_s) + 'px;background:' + col_s + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
+    return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
+
+
+def build_price_sparkline(code, all_ohlcv, n_days=14):
+    """Price/Close sparkline global — bisa dipanggil dari tab mana saja."""
+    bars_s = all_ohlcv.get(code, [])
+    closes_s = [b['C'] for b in bars_s[-n_days:] if b.get('C')]
+    if len(closes_s) < 3: return '—'
+    mn_s, mx_s = min(closes_s), max(closes_s)
+    rng_s = mx_s - mn_s if mx_s > mn_s else 1
+    parts_s = []
+    for i_s, c_s in enumerate(closes_s):
+        h_s = max(3, int((c_s - mn_s) / rng_s * 18))
+        col_s = '#1D9E75' if i_s == 0 or c_s >= closes_s[i_s-1] else '#f87171'
         parts_s.append('<span style="display:inline-block;width:3px;height:' + str(h_s) + 'px;background:' + col_s + ';border-radius:1px;margin-right:1px;vertical-align:bottom"></span>')
     return '<div style="display:flex;align-items:flex-end;height:20px">' + ''.join(parts_s) + '</div>'
 
@@ -1813,18 +1828,48 @@ def main():
     with tabs[9]:
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
         st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
-        st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window, kadang dibarengi High +5-7%, tanpa menggagalkan pola.")
+        st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window. Ditampilkan maksimal 65 saham dengan sinyal paling kuat (rasio volume terkecil).")
         if lst:
-            rows = [{'★': '★' if r['in_wl'] else '', 'Code': r['code'],
-                'Close': r['close'], 'Chg%': r['chg'],
-                'Chg Window%': r['price_chg_window'],
-                'Vol Sekarang vs Awal': f"{r['vol_ratio_pct']:.0f}%",
-                'Riak': r['spike_count'],
-                'Riak Terakhir': (f"{r['last_spike']['date']} {r['last_spike']['vol_x']}x vol / High +{r['last_spike']['high_pct']}%"
-                                   if r.get('last_spike') else '-'),
-                'Window (H)': r['window_days']} for r in lst]
-            st.dataframe(pd.DataFrame(rows).style.format({'Chg%':'{:+.2f}','Chg Window%':'{:+.1f}'}),
-                use_container_width=True, height=420)
+            div_rows_html = []
+            for r in lst:
+                cc = '#4ade80' if r['chg'] > 0 else ('#f87171' if r['chg'] < 0 else '#EF9F27')
+                pcc = '#4ade80' if r['price_chg_window'] > 0 else ('#f87171' if r['price_chg_window'] < 0 else '#EF9F27')
+                sc = '+' if r['chg'] > 0 else ''
+                spc = '+' if r['price_chg_window'] > 0 else ''
+                riak_txt = (f"{r['last_spike']['date']} {r['last_spike']['vol_x']}x vol / High +{r['last_spike']['high_pct']}%"
+                            if r.get('last_spike') else '-')
+                div_rows_html.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                    '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
+                    '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(r['chg']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + build_price_sparkline(r['code'], all_ohlcv) + '</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + build_vol_sparkline(r['code'], all_ohlcv) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + pcc + ';font-weight:500">' + spc + str(r['price_chg_window']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + f"{r['vol_ratio_pct']:.0f}%" + '</td>'
+                    '<td style="padding:7px 10px;text-align:center;font-size:12px">' + str(r['spike_count']) + '</td>'
+                    '<td style="padding:7px 10px;font-size:11px;color:#888">' + riak_txt + '</td>'
+                    '<td style="padding:7px 10px;text-align:center;font-size:12px">' + str(r['window_days']) + '</td>'
+                    '</tr>'
+                )
+            div_tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                '<th style="padding:7px 10px;color:#666;font-weight:400;font-size:11px;width:24px">★</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Trend 14H</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Vol Trend</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg Window%</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol Skrg vs Awal</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Riak</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Riak Terakhir</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Window (H)</th>'
+                '</tr></thead><tbody>' + ''.join(div_rows_html) + '</tbody></table>'
+            )
+            st.html(div_tbl_html)
         else:
             st.info("Tidak ada saham dengan pola Divergen hari ini.")
 
