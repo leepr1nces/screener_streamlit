@@ -626,74 +626,82 @@ def scan_bos(all_ohlcv, avg_vols, target, window=7):
 # ══════════════════════════════════════════════════════════════════════════════
 # BOH — Breakout High
 # ══════════════════════════════════════════════════════════════════════════════
-def scan_divergen(all_ohlcv, avg_vols, target, lookback_min=15, lookback_max=20,
+def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
                    vol_ratio_max=0.85, low_tolerance=0.98, price_dip_max=-3.0,
                    spike_vol_mult=1.5):
-    """Pola Divergen: harga basing/naik (higher low) sementara volume TREN-nya mengering
-    dalam 15-20 hari terakhir — mirip yang ditarik manual di TradingView (garis support
-    naik di harga, garis resistance turun di volume). Sesekali boleh ada 'riak' volume
-    (di atas MA window, kadang dibarengi High +5-7%) — riak ini dikeluarkan dari
-    perhitungan tren supaya tidak menggagalkan deteksi, tapi tetap dicatat sebagai info."""
+    """Pola Divergen: harga basing/naik (higher low) sementara volume TREN-nya mengering,
+    mirip yang ditarik manual di TradingView (garis support naik di harga, garis
+    resistance turun di volume). Sesekali boleh ada 'riak' volume (di atas MA window,
+    kadang dibarengi High +5-7%) — riak ini dikeluarkan dari perhitungan tren supaya
+    tidak menggagalkan deteksi, tapi tetap dicatat sebagai info.
+    Dicoba beberapa ukuran window (8/10/15/20 hari) karena periode 'mengering' tiap
+    saham bisa beda-beda panjangnya — lolos di SALAH SATU ukuran window sudah cukup."""
     results = []
+    max_window = max(window_sizes)
     for code, bars in all_ohlcv.items():
         if not bars or bars[-1]['date'] != target: continue
         in_wl = code in ALL_WL
         n = len(bars)
-        if n < lookback_min + 1: continue
-        wlen = min(n, lookback_max)
-        window = bars[-wlen:]
-        closes = [b['C'] for b in window if b.get('C')]
-        vols   = [b.get('V', 0) for b in window]
-        lows   = [b['L'] for b in window if b.get('L')]
-        if len(closes) < lookback_min or len(lows) < lookback_min:
-            continue
+        if n < min(window_sizes) + 1: continue
 
-        vol_ma = np.mean([v for v in vols if v > 0]) if any(vols) else 0
+        best = None
+        for wsize in sorted(window_sizes):
+            if n < wsize: continue
+            window = bars[-wsize:]
+            closes = [b['C'] for b in window if b.get('C')]
+            vols   = [b.get('V', 0) for b in window]
+            lows   = [b['L'] for b in window if b.get('L')]
+            if len(closes) < wsize or len(lows) < wsize: continue
 
-        # Deteksi hari 'riak' — volume jauh di atas rata-rata window, kadang dibarengi High besar
-        spike_days = []
-        for b in window:
-            v = b.get('V', 0)
-            if vol_ma > 0 and v > vol_ma * spike_vol_mult:
-                hp = (b['H']-b['P'])/b['P']*100 if b.get('H') and b.get('P') and b['P']>0 else 0
-                spike_days.append({'date': b['date'][5:], 'vol_x': round(v/vol_ma,2), 'high_pct': round(hp,1)})
+            vol_ma = np.mean([v for v in vols if v > 0]) if any(vols) else 0
 
-        # Tren volume dihitung dari hari NON-riak saja — riak sesekali tidak menggagalkan deteksi
-        non_spike_vols = [b.get('V',0) for b in window
-                           if not (vol_ma > 0 and b.get('V',0) > vol_ma * spike_vol_mult)]
-        if len(non_spike_vols) < max(5, lookback_min // 2):
-            non_spike_vols = vols  # fallback kalau kebanyakan hari malah kena filter riak
-        half_v = len(non_spike_vols) // 2
-        vol_first  = np.mean(non_spike_vols[:half_v]) if non_spike_vols[:half_v] else 0
-        vol_second = np.mean(non_spike_vols[half_v:]) if non_spike_vols[half_v:] else 0
-        vol_ratio  = (vol_second / vol_first) if vol_first > 0 else 1.0
+            spike_days = []
+            for b in window:
+                v = b.get('V', 0)
+                if vol_ma > 0 and v > vol_ma * spike_vol_mult:
+                    hp = (b['H']-b['P'])/b['P']*100 if b.get('H') and b.get('P') and b['P']>0 else 0
+                    spike_days.append({'date': b['date'][5:], 'vol_x': round(v/vol_ma,2), 'high_pct': round(hp,1)})
 
-        half_l = len(lows) // 2
-        low_first  = min(lows[:half_l]) if lows[:half_l] else 0
-        low_second = min(lows[half_l:]) if lows[half_l:] else 0
-        higher_low = low_second >= low_first * low_tolerance
+            non_spike_vols = [b.get('V',0) for b in window
+                               if not (vol_ma > 0 and b.get('V',0) > vol_ma * spike_vol_mult)]
+            if len(non_spike_vols) < max(4, wsize // 2):
+                non_spike_vols = vols
+            half_v = len(non_spike_vols) // 2
+            vol_first  = np.mean(non_spike_vols[:half_v]) if non_spike_vols[:half_v] else 0
+            vol_second = np.mean(non_spike_vols[half_v:]) if non_spike_vols[half_v:] else 0
+            vol_ratio  = (vol_second / vol_first) if vol_first > 0 else 1.0
 
-        price_start = closes[0]; price_now = closes[-1]
-        if not price_start or price_start <= 0: continue
-        price_chg = (price_now - price_start) / price_start * 100
+            half_l = len(lows) // 2
+            low_first  = min(lows[:half_l]) if lows[:half_l] else 0
+            low_second = min(lows[half_l:]) if lows[half_l:] else 0
+            higher_low = low_second >= low_first * low_tolerance
 
-        vol_declining = vol_ratio < vol_ratio_max
-        price_ok = price_chg > price_dip_max
-        if not (vol_declining and price_ok and higher_low): continue
+            price_start = closes[0]; price_now = closes[-1]
+            if not price_start or price_start <= 0: continue
+            price_chg = (price_now - price_start) / price_start * 100
 
-        today = window[-1]
-        chg0 = (today['C']-today['P'])/today['P']*100 if today.get('P') and today['P']>0 else 0
-        score = round((1-vol_ratio)*100) + (20 if price_chg > 0 else 0) + (10*len(spike_days)) + (30 if in_wl else 0)
-        results.append({
-            'code': code, 'in_wl': in_wl, 'close': int(today['C']),
-            'chg': round(chg0,2),
-            'price_chg_window': round(price_chg,1),
-            'vol_ratio_pct': round(vol_ratio*100,0),
-            'window_days': wlen,
-            'spike_count': len(spike_days),
-            'last_spike': spike_days[-1] if spike_days else None,
-            'score': score,
-        })
+            vol_declining = vol_ratio < vol_ratio_max
+            price_ok = price_chg > price_dip_max
+            if not (vol_declining and price_ok and higher_low): continue
+
+            # Simpan window dengan vol_ratio terkecil (paling jelas mengering)
+            if best is None or vol_ratio < best['vol_ratio']:
+                today = window[-1]
+                chg0 = (today['C']-today['P'])/today['P']*100 if today.get('P') and today['P']>0 else 0
+                score = round((1-vol_ratio)*100) + (20 if price_chg > 0 else 0) + (10*len(spike_days)) + (30 if in_wl else 0)
+                best = {
+                    'code': code, 'in_wl': in_wl, 'close': int(today['C']),
+                    'chg': round(chg0,2),
+                    'price_chg_window': round(price_chg,1),
+                    'vol_ratio': vol_ratio,
+                    'vol_ratio_pct': round(vol_ratio*100,0),
+                    'window_days': wsize,
+                    'spike_count': len(spike_days),
+                    'last_spike': spike_days[-1] if spike_days else None,
+                    'score': score,
+                }
+        if best:
+            results.append(best)
     results.sort(key=lambda x: (-int(x['in_wl']), x['vol_ratio_pct'], -x['score']))
     return results
 
@@ -837,7 +845,7 @@ def load_from_folder(folder="data"):
 # AUTO STOCKPICK RANGKUMAN — Kompilasi terbaik dari semua pola
 # ══════════════════════════════════════════════════════════════════════════════
 def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list,
-                   sp_list, bos_list, boh_list, ttx_list, all_ohlcv=None, target=None):
+                   sp_list, bos_list, boh_list, ttx_list, all_ohlcv=None, target=None, div_list=None):
     """Kompilasi saham terbaik dari semua pola.
     Filter: >=3 pola ATAU (2 pola + spike H/P>=5% dalam 10H terakhir).
     Sorted: jumlah pola desc -> Chg% desc -> H/P% desc.
@@ -867,6 +875,8 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
     add([r for r in boh_list if r.get('vol_kering')], 'BOH')
     add([r for r in ttx_list if r.get('priority') == 0], 'TTx🔔')
     add(sp_list, 'SP')
+    if div_list:
+        add(div_list, 'Div')
 
     def has_spike_10h(code):
         """Cek apakah ada spike H/P >= 5% dalam 10 hari terakhir."""
@@ -1216,7 +1226,7 @@ def main():
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
         div_list  = scan_divergen(all_ohlcv, avg_vols, target)
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
-        auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list, all_ohlcv, target)
+        auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list, all_ohlcv, target, div_list)
 
         # ── Build data OHLCV untuk Miracle Cuan (embed langsung, bukan URL luar) ──
         try:
@@ -1802,7 +1812,7 @@ def main():
     # Tab Divergen
     with tabs[9]:
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
-        st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering ({15}-{20}H) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
+        st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
         st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window, kadang dibarengi High +5-7%, tanpa menggagalkan pola.")
         if lst:
             rows = [{'★': '★' if r['in_wl'] else '', 'Code': r['code'],
@@ -1939,7 +1949,7 @@ def main():
                 'BOS':   ('#E1F5EE','#085041'), 'BOH':  ('#FAECE7','#712B13'),
                 'TTx🔔': ('#FAEEDA','#633806'), 'SP':   ('#E6F1FB','#0C447C'),
                 'P1':    ('#FCEBEB','#791F1F'), 'P3':   ('#FBEAF0','#4B1528'),
-                'OL3':   ('#EAF3DE','#27500A'),
+                'OL3':   ('#EAF3DE','#27500A'), 'Div':  ('#E3F8EF','#0F6B4C'),
             }
 
             tbl_rows = []
