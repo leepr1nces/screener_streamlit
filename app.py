@@ -703,7 +703,7 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
         if best:
             results.append(best)
     results.sort(key=lambda x: (-int(x['in_wl']), x['vol_ratio_pct'], -x['score']))
-    return results[:65]
+    return results[:75]
 
 
 def scan_boh(all_ohlcv, avg_vols, target, min_trigger=20.0, min_gap=5.0, max_days=10):
@@ -1829,7 +1829,7 @@ def main():
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
         lst = sorted(lst, key=lambda r: r['chg'])
         st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
-        st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window. Ditampilkan maksimal 65 saham dengan sinyal paling kuat (rasio volume terkecil).")
+        st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window. Ditampilkan maksimal 75 saham dengan sinyal paling kuat (rasio volume terkecil).")
         if lst:
             div_rows_html = []
             for r in lst:
@@ -2205,6 +2205,12 @@ def main():
                 for e in running_entries:
                     chg_raw = str(e.get('chg_berjalan','') or '')
                     chg_c = '#f87171' if chg_raw.startswith('-') else ('#4ade80' if chg_raw not in ('','0.00%') else '#888')
+                    tp1_hit = e.get('tp1_hit')
+                    tp2_hit = e.get('tp2_hit')
+                    tp1_txt = f"{e.get('harga_tp1','')} {'✅' if tp1_hit else ''}"
+                    tp2_txt = f"{e.get('harga_tp2','')} {'✅' if tp2_hit else ''}"
+                    tp1_c = '#4ade80' if tp1_hit else '#888'
+                    tp2_c = '#4ade80' if tp2_hit else '#888'
                     _rows.append(
                         '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
                         f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
@@ -2212,6 +2218,8 @@ def main():
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp1_c}">{tp1_txt}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp2_c}">{tp2_txt}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:11px">{e.get("status","")}</td>'
                         '</tr>'
                     )
@@ -2223,6 +2231,8 @@ def main():
                     '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
                     '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
                     '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">TP1</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">TP2</th>'
                     '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Status</th>'
                     '</tr></thead><tbody>' + ''.join(_rows) + '</tbody></table>'
                 )
