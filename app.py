@@ -626,13 +626,35 @@ def scan_bos(all_ohlcv, avg_vols, target, window=7):
 # ══════════════════════════════════════════════════════════════════════════════
 # BOH — Breakout High
 # ══════════════════════════════════════════════════════════════════════════════
+def detect_descending_high(bars, spike_min_pct=4.0, dh_window_sizes=(5, 4, 3)):
+    """Cek pola 'descending high': di hari tertua window ada High spike >= spike_min_pct%,
+    lalu tiap hari berikutnya High-nya terus mengecil (T-4 < T-5, T-3 < T-4, dst).
+    Dicoba window 5H dulu (paling meyakinkan), kalau tidak match coba 4H, lalu 3H."""
+    for n in dh_window_sizes:
+        if len(bars) < n: continue
+        window = bars[-n:]
+        first = window[0]
+        if not (first.get('H') and first.get('P') and first['P'] > 0): continue
+        spike_pct = (first['H'] - first['P']) / first['P'] * 100
+        if spike_pct < spike_min_pct: continue
+        ok = True
+        for i in range(1, n):
+            h_prev = window[i-1].get('H')
+            h_now = window[i].get('H')
+            if h_prev is None or h_now is None or not (h_now < h_prev):
+                ok = False; break
+        if ok:
+            return {'window': n, 'spike_pct': round(spike_pct, 1)}
+    return None
+
+
 def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
                    vol_ratio_max=0.85, low_tolerance=0.98, price_dip_max=-3.0,
                    spike_vol_mult=1.5):
     """Pola Divergen: harga basing/naik (higher low) sementara volume TREN-nya mengering,
     mirip yang ditarik manual di TradingView (garis support naik di harga, garis
-    resistance turun di volume). Sesekali boleh ada 'riak' volume (di atas MA window,
-    kadang dibarengi High +5-7%) — riak ini dikeluarkan dari perhitungan tren supaya
+    resistance turun di volume). Sesekali boleh ada 'C-Spike' volume (di atas MA window,
+    kadang dibarengi High +5-7%) — C-Spike ini dikeluarkan dari perhitungan tren supaya
     tidak menggagalkan deteksi, tapi tetap dicatat sebagai info.
     Dicoba beberapa ukuran window (8/10/15/20 hari) karena periode 'mengering' tiap
     saham bisa beda-beda panjangnya — lolos di SALAH SATU ukuran window sudah cukup."""
@@ -655,20 +677,20 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
 
             vol_ma = np.mean([v for v in vols if v > 0]) if any(vols) else 0
 
-            spike_days = []
+            cspike_days = []
             for b in window:
                 v = b.get('V', 0)
                 if vol_ma > 0 and v > vol_ma * spike_vol_mult:
                     hp = (b['H']-b['P'])/b['P']*100 if b.get('H') and b.get('P') and b['P']>0 else 0
-                    spike_days.append({'date': b['date'][5:], 'vol_x': round(v/vol_ma,2), 'high_pct': round(hp,1)})
+                    cspike_days.append({'date': b['date'][5:], 'vol_x': round(v/vol_ma,2), 'high_pct': round(hp,1)})
 
-            non_spike_vols = [b.get('V',0) for b in window
+            non_cspike_vols = [b.get('V',0) for b in window
                                if not (vol_ma > 0 and b.get('V',0) > vol_ma * spike_vol_mult)]
-            if len(non_spike_vols) < max(4, wsize // 2):
-                non_spike_vols = vols
-            half_v = len(non_spike_vols) // 2
-            vol_first  = np.mean(non_spike_vols[:half_v]) if non_spike_vols[:half_v] else 0
-            vol_second = np.mean(non_spike_vols[half_v:]) if non_spike_vols[half_v:] else 0
+            if len(non_cspike_vols) < max(4, wsize // 2):
+                non_cspike_vols = vols
+            half_v = len(non_cspike_vols) // 2
+            vol_first  = np.mean(non_cspike_vols[:half_v]) if non_cspike_vols[:half_v] else 0
+            vol_second = np.mean(non_cspike_vols[half_v:]) if non_cspike_vols[half_v:] else 0
             vol_ratio  = (vol_second / vol_first) if vol_first > 0 else 1.0
 
             half_l = len(lows) // 2
@@ -688,7 +710,7 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
             if best is None or vol_ratio < best['vol_ratio']:
                 today = window[-1]
                 chg0 = (today['C']-today['P'])/today['P']*100 if today.get('P') and today['P']>0 else 0
-                score = round((1-vol_ratio)*100) + (20 if price_chg > 0 else 0) + (10*len(spike_days)) + (30 if in_wl else 0)
+                score = round((1-vol_ratio)*100) + (20 if price_chg > 0 else 0) + (10*len(cspike_days)) + (30 if in_wl else 0)
                 best = {
                     'code': code, 'in_wl': in_wl, 'close': int(today['C']),
                     'chg': round(chg0,2),
@@ -696,11 +718,12 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
                     'vol_ratio': vol_ratio,
                     'vol_ratio_pct': round(vol_ratio*100,0),
                     'window_days': wsize,
-                    'spike_count': len(spike_days),
-                    'last_spike': spike_days[-1] if spike_days else None,
+                    'spike_count': len(cspike_days),
+                    'last_spike': cspike_days[-1] if cspike_days else None,
                     'score': score,
                 }
         if best:
+            best['desc_high'] = detect_descending_high(bars)
             results.append(best)
     results.sort(key=lambda x: (-int(x['in_wl']), x['vol_ratio_pct'], -x['score']))
     return results[:75]
@@ -1829,7 +1852,7 @@ def main():
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
         lst = sorted(lst, key=lambda r: r['chg'])
         st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
-        st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window. Ditampilkan maksimal 75 saham dengan sinyal paling kuat (rasio volume terkecil).")
+        st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada C-Spike volume di atas MA window. Ditampilkan maksimal 75 saham dengan sinyal paling kuat (rasio volume terkecil).")
         if lst:
             div_rows_html = []
             for r in lst:
@@ -1837,8 +1860,11 @@ def main():
                 pcc = '#4ade80' if r['price_chg_window'] > 0 else ('#f87171' if r['price_chg_window'] < 0 else '#EF9F27')
                 sc = '+' if r['chg'] > 0 else ''
                 spc = '+' if r['price_chg_window'] > 0 else ''
-                riak_txt = (f"{r['last_spike']['date']} {r['last_spike']['vol_x']}x vol / High +{r['last_spike']['high_pct']}%"
+                cspike_txt = (f"{r['last_spike']['date']} {r['last_spike']['vol_x']}x vol / High +{r['last_spike']['high_pct']}%"
                             if r.get('last_spike') else '-')
+                dh = r.get('desc_high')
+                dh_txt = f"✅ {dh['window']}H (spike +{dh['spike_pct']}%)" if dh else '-'
+                dh_c = '#4ade80' if dh else '#888'
                 div_rows_html.append(
                     '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
                     '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
@@ -1850,7 +1876,8 @@ def main():
                     '<td style="padding:7px 10px;text-align:right;color:' + pcc + ';font-weight:500">' + spc + str(r['price_chg_window']) + '%</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + f"{r['vol_ratio_pct']:.0f}%" + '</td>'
                     '<td style="padding:7px 10px;text-align:center;font-size:12px">' + str(r['spike_count']) + '</td>'
-                    '<td style="padding:7px 10px;font-size:11px;color:#888">' + riak_txt + '</td>'
+                    '<td style="padding:7px 10px;font-size:11px;color:#888">' + cspike_txt + '</td>'
+                    '<td style="padding:7px 10px;font-size:11px;color:' + dh_c + '">' + dh_txt + '</td>'
                     '<td style="padding:7px 10px;text-align:center;font-size:12px">' + str(r['window_days']) + '</td>'
                     '</tr>'
                 )
@@ -1865,8 +1892,9 @@ def main():
                 '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Vol Trend</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg Window%</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol Skrg vs Awal</th>'
-                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Riak</th>'
-                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Riak Terakhir</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">C-Spike</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">C-Spike Terakhir</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Desc-High</th>'
                 '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Window (H)</th>'
                 '</tr></thead><tbody>' + ''.join(div_rows_html) + '</tbody></table>'
             )
