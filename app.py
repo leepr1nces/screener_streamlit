@@ -626,6 +626,78 @@ def scan_bos(all_ohlcv, avg_vols, target, window=7):
 # ══════════════════════════════════════════════════════════════════════════════
 # BOH — Breakout High
 # ══════════════════════════════════════════════════════════════════════════════
+def scan_divergen(all_ohlcv, avg_vols, target, lookback_min=15, lookback_max=20,
+                   vol_ratio_max=0.7, low_tolerance=0.98, price_dip_max=-3.0,
+                   spike_vol_mult=1.5):
+    """Pola Divergen: harga basing/naik (higher low) sementara volume TREN-nya mengering
+    dalam 15-20 hari terakhir — mirip yang ditarik manual di TradingView (garis support
+    naik di harga, garis resistance turun di volume). Sesekali boleh ada 'riak' volume
+    (di atas MA window, kadang dibarengi High +5-7%) — riak ini dikeluarkan dari
+    perhitungan tren supaya tidak menggagalkan deteksi, tapi tetap dicatat sebagai info."""
+    results = []
+    for code, bars in all_ohlcv.items():
+        if not bars or bars[-1]['date'] != target: continue
+        in_wl = code in ALL_WL
+        n = len(bars)
+        if n < lookback_min + 1: continue
+        wlen = min(n, lookback_max)
+        window = bars[-wlen:]
+        closes = [b['C'] for b in window if b.get('C')]
+        vols   = [b.get('V', 0) for b in window]
+        lows   = [b['L'] for b in window if b.get('L')]
+        if len(closes) < lookback_min or len(lows) < lookback_min:
+            continue
+
+        vol_ma = np.mean([v for v in vols if v > 0]) if any(vols) else 0
+
+        # Deteksi hari 'riak' — volume jauh di atas rata-rata window, kadang dibarengi High besar
+        spike_days = []
+        for b in window:
+            v = b.get('V', 0)
+            if vol_ma > 0 and v > vol_ma * spike_vol_mult:
+                hp = (b['H']-b['P'])/b['P']*100 if b.get('H') and b.get('P') and b['P']>0 else 0
+                spike_days.append({'date': b['date'][5:], 'vol_x': round(v/vol_ma,2), 'high_pct': round(hp,1)})
+
+        # Tren volume dihitung dari hari NON-riak saja — riak sesekali tidak menggagalkan deteksi
+        non_spike_vols = [b.get('V',0) for b in window
+                           if not (vol_ma > 0 and b.get('V',0) > vol_ma * spike_vol_mult)]
+        if len(non_spike_vols) < max(5, lookback_min // 2):
+            non_spike_vols = vols  # fallback kalau kebanyakan hari malah kena filter riak
+        half_v = len(non_spike_vols) // 2
+        vol_first  = np.mean(non_spike_vols[:half_v]) if non_spike_vols[:half_v] else 0
+        vol_second = np.mean(non_spike_vols[half_v:]) if non_spike_vols[half_v:] else 0
+        vol_ratio  = (vol_second / vol_first) if vol_first > 0 else 1.0
+
+        half_l = len(lows) // 2
+        low_first  = min(lows[:half_l]) if lows[:half_l] else 0
+        low_second = min(lows[half_l:]) if lows[half_l:] else 0
+        higher_low = low_second >= low_first * low_tolerance
+
+        price_start = closes[0]; price_now = closes[-1]
+        if not price_start or price_start <= 0: continue
+        price_chg = (price_now - price_start) / price_start * 100
+
+        vol_declining = vol_ratio < vol_ratio_max
+        price_ok = price_chg > price_dip_max
+        if not (vol_declining and price_ok and higher_low): continue
+
+        today = window[-1]
+        chg0 = (today['C']-today['P'])/today['P']*100 if today.get('P') and today['P']>0 else 0
+        score = round((1-vol_ratio)*100) + (20 if price_chg > 0 else 0) + (10*len(spike_days)) + (30 if in_wl else 0)
+        results.append({
+            'code': code, 'in_wl': in_wl, 'close': int(today['C']),
+            'chg': round(chg0,2),
+            'price_chg_window': round(price_chg,1),
+            'vol_ratio_pct': round(vol_ratio*100,0),
+            'window_days': wlen,
+            'spike_count': len(spike_days),
+            'last_spike': spike_days[-1] if spike_days else None,
+            'score': score,
+        })
+    results.sort(key=lambda x: (-int(x['in_wl']), x['vol_ratio_pct'], -x['score']))
+    return results
+
+
 def scan_boh(all_ohlcv, avg_vols, target, min_trigger=20.0, min_gap=5.0, max_days=10):
     results = []
     for code, bars in all_ohlcv.items():
@@ -1142,6 +1214,7 @@ def main():
 
         bos_list  = scan_bos(all_ohlcv, avg_vols, target)
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
+        div_list  = scan_divergen(all_ohlcv, avg_vols, target)
         ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
         auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list, all_ohlcv, target)
 
@@ -1174,10 +1247,11 @@ def main():
         st.caption(st.session_state["tpsl_last_result"])
 
     # ── Summary chips ─────────────────────────────────────────────────────────
-    cols = st.columns(4)
+    cols = st.columns(5)
     chips = [
         ("🚀 BOS",      len([r for r in bos_list   if r['in_wl'] and r['entry']!='Tunggu']), "#f59e0b"),
         ("📈 BOH",      len([r for r in boh_list   if r['in_wl']]), "#06b6d4"),
+        ("🔀 Divergen", len([r for r in div_list   if r['in_wl']]), "#22d3a8"),
         ("⏰ TTx🔔",    len([r for r in ttx_list   if r['priority']==0]), "#e879f9"),
         ("🛒 Stockpick",len([r for r in sp_list    if r['in_wl']]), "#a78bfa"),
     ]
@@ -1277,11 +1351,12 @@ def main():
         add_pola([r for r in ttx_list if r.get('priority')==0], 'TTx🔔')
         add_pola([r for r in p1_list if r.get('signal')=='Kering'], 'P1')
         add_pola(sp_list, 'SP')
+        add_pola(div_list, 'Div')
 
         POLA_COLORS = {
             'BOA✅': '#CECBF6', 'BOA~': '#CECBF6',
             'BOS': '#9FE1CB', 'BOH': '#F5C4B3',
-            'TTx🔔': '#FAC775', 'P1': '#F4C0D1', 'SP': '#B5D4F4',
+            'TTx🔔': '#FAC775', 'P1': '#F4C0D1', 'SP': '#B5D4F4', 'Div': '#B8EFD9',
         }
 
         hm_hdr_parts = []
@@ -1318,7 +1393,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -1481,7 +1556,7 @@ def main():
             st.success("✅ Tidak ada Alert WL saat ini — pasar sehat!")
 
     # Tab Stockpick
-    with tabs[11]:
+    with tabs[12]:
         st.markdown("### 🛒 Stockpick Buy Close")
 
         # Parameter fixed (tidak perlu slider lagi)
@@ -1724,8 +1799,27 @@ def main():
         else:
             st.info("Tidak ada BOH dalam pantauan.")
 
-    # Tab TTx
+    # Tab Divergen
     with tabs[9]:
+        lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
+        st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering ({15}-{20}H) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
+        st.caption("Tren volume mengering, harga tidak turun signifikan (higher low) — sesekali boleh ada riak volume di atas MA window, kadang dibarengi High +5-7%, tanpa menggagalkan pola.")
+        if lst:
+            rows = [{'★': '★' if r['in_wl'] else '', 'Code': r['code'],
+                'Close': r['close'], 'Chg%': r['chg'],
+                'Chg Window%': r['price_chg_window'],
+                'Vol Sekarang vs Awal': f"{r['vol_ratio_pct']:.0f}%",
+                'Riak': r['spike_count'],
+                'Riak Terakhir': (f"{r['last_spike']['date']} {r['last_spike']['vol_x']}x vol / High +{r['last_spike']['high_pct']}%"
+                                   if r.get('last_spike') else '-'),
+                'Window (H)': r['window_days']} for r in lst]
+            st.dataframe(pd.DataFrame(rows).style.format({'Chg%':'{:+.2f}','Chg Window%':'{:+.1f}'}),
+                use_container_width=True, height=420)
+        else:
+            st.info("Tidak ada saham dengan pola Divergen hari ini.")
+
+    # Tab TTx
+    with tabs[10]:
         remind_lst   = [r for r in ttx_list if r['priority'] == 0]
         confirm_lst  = [r for r in ttx_list if r['priority'] == 1]
         upcoming_lst = [r for r in ttx_list if r['priority'] == 2]
@@ -1766,7 +1860,7 @@ def main():
 
 
     # Tab Auto StockPick
-    with tabs[10]:
+    with tabs[11]:
         st.markdown(f"**⭐ Auto StockPick — {target}**")
         st.caption("Filter: ≥3 pola ATAU 2 pola + spike ≥5% dalam 10H | Sorted: Chg% → H/P% → N Pola")
 
@@ -1924,7 +2018,7 @@ def main():
         else:
             st.info("Belum ada sinyal Auto StockPick hari ini.")
     # Tab Track Record
-    with tabs[12]:
+    with tabs[13]:
         st.markdown(f"**📋 Track Record StockPick | Entry → Max High T+1~T+5 | Semua Histori**")
         st.caption("Entry = muncul di StockPick hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
 
@@ -1986,7 +2080,7 @@ def main():
             st.info("Belum ada data track record. Upload lebih banyak file screener ke folder data/.")
 
     # Tab Miracle Cuan
-    with tabs[13]:
+    with tabs[14]:
         _mc_data_embed = st.session_state.get('miracle_data', '')
         _mc_ohlcv_embed = st.session_state.get('miracle_ohlcv', '')
         if not _mc_data_embed:
