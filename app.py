@@ -900,6 +900,7 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
     add(sp_list, 'SP')
     if div_list:
         add(div_list, 'Div')
+        add([r for r in div_list if r.get('desc_high')], 'Desc-High')
 
     def has_spike_10h(code):
         """Cek apakah ada spike H/P >= 5% dalam 10 hari terakhir."""
@@ -2024,6 +2025,7 @@ def main():
                 'TTx🔔': ('#FAEEDA','#633806'), 'SP':   ('#E6F1FB','#0C447C'),
                 'P1':    ('#FCEBEB','#791F1F'), 'P3':   ('#FBEAF0','#4B1528'),
                 'OL3':   ('#EAF3DE','#27500A'), 'Div':  ('#E3F8EF','#0F6B4C'),
+                'Desc-High': ('#FFF1E0','#8A4B00'),
             }
 
             tbl_rows = []
