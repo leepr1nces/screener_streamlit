@@ -812,6 +812,23 @@ def scan_ttx(all_ohlcv, avg_vols, target, hvp_thresh=8.0, gap_min=3, gap_max=15,
     return results
 
 
+def get_data_folder_signature(folder="data"):
+    """Fingerprint isi folder data/ (nama file + waktu modif + ukuran) — dipakai sebagai
+    cache key, supaya cache otomatis invalid begitu ada file baru/berubah, tanpa perlu
+    baca ulang XLS yang sudah pernah diproses."""
+    import glob
+    files = sorted(glob.glob(f"{folder}/*.xls") + glob.glob(f"{folder}/*.xlsx"))
+    sig = tuple((os.path.basename(f), os.path.getmtime(f), os.path.getsize(f)) for f in files)
+    return sig
+
+
+@st.cache_data(show_spinner=False)
+def load_from_folder_cached(folder, _signature):
+    """Versi cached dari load_from_folder — _signature dipakai Streamlit sebagai cache
+    key (nilainya sendiri tidak dipakai di dalam fungsi, makanya prefix underscore)."""
+    return load_from_folder(folder)
+
+
 def load_from_folder(folder="data"):
     """Load semua file XLS/XLSX dari folder data/ di repo."""
     import glob
@@ -1199,7 +1216,7 @@ def main():
         if uploaded_files:
             all_ohlcv = load_uploaded(uploaded_files)
         else:
-            all_ohlcv = load_from_folder("data")
+            all_ohlcv = load_from_folder_cached("data", get_data_folder_signature("data"))
         if not all_ohlcv:
             st.error("Tidak ada data yang terbaca. Cek format file."); return
 
