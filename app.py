@@ -2413,29 +2413,28 @@ def main():
             stats = _sd.get('stats', {})
             entries = _sd.get('entries', [])
 
-            def _stat_card(icon, label, value, accent):
+            def _stat_card(icon, label, value, bg, border, text):
                 return (
-                    f'<div style="background:linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));'
-                    f'border:1px solid rgba(128,128,128,0.15);border-left:3px solid {accent};'
+                    f'<div style="background:{bg};border:1px solid {border};'
                     f'border-radius:10px;padding:14px 16px;min-width:0">'
-                    f'<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.6px;'
+                    f'<div style="font-size:11px;color:{text};opacity:0.75;text-transform:uppercase;letter-spacing:0.6px;'
                     f'display:flex;align-items:center;gap:5px">{icon} {label}</div>'
-                    f'<div style="font-size:26px;font-weight:700;margin-top:6px;color:#e5e5e5;line-height:1">{value}</div>'
+                    f'<div style="font-size:26px;font-weight:700;margin-top:6px;color:{text};line-height:1">{value}</div>'
                     f'</div>'
                 )
 
             row1 = ''.join([
-                _stat_card('📌', 'Total Entry', stats.get('Total Entry', '-'), '#94a3b8'),
-                _stat_card('✅', 'TP1 Hit', stats.get('TP1 Hit', '-'), '#4ade80'),
-                _stat_card('🎯', 'TP2 Hit', stats.get('TP2 Hit', '-'), '#22c55e'),
-                _stat_card('🛑', 'SL Hit', stats.get('SL Hit', '-'), '#f87171'),
-                _stat_card('⏳', 'Running', stats.get('Running', '-'), '#fbbf24'),
+                _stat_card('📌', 'Total Entry', stats.get('Total Entry', '-'), '#F1F5F9', '#CBD5E1', '#334155'),
+                _stat_card('✅', 'TP1 Hit', stats.get('TP1 Hit', '-'), '#DCFCE7', '#86EFAC', '#166534'),
+                _stat_card('🎯', 'TP2 Hit', stats.get('TP2 Hit', '-'), '#BBF7D0', '#4ADE80', '#14532D'),
+                _stat_card('🛑', 'SL Hit', stats.get('SL Hit', '-'), '#FEE2E2', '#FCA5A5', '#991B1B'),
+                _stat_card('⏳', 'Running', stats.get('Running', '-'), '#FEF3C7', '#FCD34D', '#92400E'),
             ])
             row2 = ''.join([
-                _stat_card('🏆', 'Win Rate TP1', stats.get('Win Rate TP1', '-'), '#38bdf8'),
-                _stat_card('🏆', 'Win Rate TP2', stats.get('Win Rate TP2', '-'), '#0ea5e9'),
-                _stat_card('📅', 'Avg Hari TP1', stats.get('Avg Hari TP1', '-'), '#c084fc'),
-                _stat_card('📅', 'Avg Hari TP2', stats.get('Avg Hari TP2', '-'), '#a855f7'),
+                _stat_card('🏆', 'Win Rate TP1', stats.get('Win Rate TP1', '-'), '#E0F2FE', '#7DD3FC', '#075985'),
+                _stat_card('🏆', 'Win Rate TP2', stats.get('Win Rate TP2', '-'), '#DBEAFE', '#93C5FD', '#1E3A8A'),
+                _stat_card('📅', 'Avg Hari TP1', stats.get('Avg Hari TP1', '-'), '#F3E8FF', '#D8B4FE', '#6B21A8'),
+                _stat_card('📅', 'Avg Hari TP2', stats.get('Avg Hari TP2', '-'), '#EDE9FE', '#C4B5FD', '#5B21B6'),
             ])
             st.html(
                 f'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">{row1}</div>'
