@@ -2413,18 +2413,34 @@ def main():
             stats = _sd.get('stats', {})
             entries = _sd.get('entries', [])
 
-            m1,m2,m3,m4,m5 = st.columns(5)
-            m1.metric("Total Entry", stats.get('Total Entry', '-'))
-            m2.metric("TP1 Hit", stats.get('TP1 Hit', '-'))
-            m3.metric("TP2 Hit", stats.get('TP2 Hit', '-'))
-            m4.metric("SL Hit", stats.get('SL Hit', '-'))
-            m5.metric("Running", stats.get('Running', '-'))
+            def _stat_card(icon, label, value, accent):
+                return (
+                    f'<div style="background:linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));'
+                    f'border:1px solid rgba(128,128,128,0.15);border-left:3px solid {accent};'
+                    f'border-radius:10px;padding:14px 16px;min-width:0">'
+                    f'<div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.6px;'
+                    f'display:flex;align-items:center;gap:5px">{icon} {label}</div>'
+                    f'<div style="font-size:26px;font-weight:700;margin-top:6px;color:#e5e5e5;line-height:1">{value}</div>'
+                    f'</div>'
+                )
 
-            w1,w2,w3,w4 = st.columns(4)
-            w1.metric("Win Rate TP1", stats.get('Win Rate TP1', '-'))
-            w2.metric("Win Rate TP2", stats.get('Win Rate TP2', '-'))
-            w3.metric("Avg Hari TP1", stats.get('Avg Hari TP1', '-'))
-            w4.metric("Avg Hari TP2", stats.get('Avg Hari TP2', '-'))
+            row1 = ''.join([
+                _stat_card('📌', 'Total Entry', stats.get('Total Entry', '-'), '#94a3b8'),
+                _stat_card('✅', 'TP1 Hit', stats.get('TP1 Hit', '-'), '#4ade80'),
+                _stat_card('🎯', 'TP2 Hit', stats.get('TP2 Hit', '-'), '#22c55e'),
+                _stat_card('🛑', 'SL Hit', stats.get('SL Hit', '-'), '#f87171'),
+                _stat_card('⏳', 'Running', stats.get('Running', '-'), '#fbbf24'),
+            ])
+            row2 = ''.join([
+                _stat_card('🏆', 'Win Rate TP1', stats.get('Win Rate TP1', '-'), '#38bdf8'),
+                _stat_card('🏆', 'Win Rate TP2', stats.get('Win Rate TP2', '-'), '#0ea5e9'),
+                _stat_card('📅', 'Avg Hari TP1', stats.get('Avg Hari TP1', '-'), '#c084fc'),
+                _stat_card('📅', 'Avg Hari TP2', stats.get('Avg Hari TP2', '-'), '#a855f7'),
+            ])
+            st.html(
+                f'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">{row1}</div>'
+                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">{row2}</div>'
+            )
 
             running_entries = [e for e in entries if e.get('status') in ('Running','Partial')]
             if running_entries:
