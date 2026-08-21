@@ -1172,6 +1172,66 @@ def build_trackrecord_summary(all_ohlcv, all_dates, max_hold=5):
     return summary
 
 
+def build_sp_autosp_breakout(all_ohlcv, all_dates, lookback_days=30, gain_threshold=5.0):
+    """Rangkuman saham yang muncul di StockPick dan/atau AutoSP pada hari T,
+    lalu High T+1 (keesokan hari trading) mencapai >= gain_threshold% dari Close T.
+    Menandai sumbernya (SP / AutoSP / SP+AutoSP) beserta badge pola dari AutoSP."""
+    avg_vols = {}
+    for code, bars in all_ohlcv.items():
+        vols = [b.get('V',0) for b in bars if b.get('V',0) > 0]
+        avg_vols[code] = float(np.mean(vols)) if vols else 1.0
+
+    dates_sorted = sorted(all_dates)
+    scan_dates = dates_sorted[-(lookback_days+1):] if lookback_days else dates_sorted
+
+    results = []
+    for i, date_t in enumerate(dates_sorted):
+        if date_t not in scan_dates: continue
+        if i+1 >= len(dates_sorted): continue
+        date_t1 = dates_sorted[i+1]
+
+        sp_list_t = [r for r in scan_stockpick(all_ohlcv, avg_vols, date_t) if r['in_wl']]
+        boa_full_t, boa_near_t = scan_boa(all_ohlcv, avg_vols, date_t)
+        p1_list_t = scan_p1(all_ohlcv, avg_vols, date_t)
+        p3_list_t = scan_p3(all_ohlcv, avg_vols, date_t)
+        ol_list_t = scan_ol_seq(all_ohlcv, avg_vols, date_t)
+        sv_list_t = scan_sv(all_ohlcv, avg_vols, date_t)
+        alert_list_t = scan_alert(all_ohlcv, avg_vols, date_t)
+        bos_list_t = scan_bos(all_ohlcv, avg_vols, date_t)
+        boh_list_t = scan_boh(all_ohlcv, avg_vols, date_t)
+        ttx_list_t = scan_ttx(all_ohlcv, avg_vols, date_t)
+        div_list_t = scan_divergen(all_ohlcv, avg_vols, date_t)
+        autosp_list_t = auto_stockpick(boa_full_t, boa_near_t, p1_list_t, p3_list_t, ol_list_t,
+                                        sv_list_t, alert_list_t, sp_list_t, bos_list_t, boh_list_t,
+                                        ttx_list_t, all_ohlcv, date_t, div_list_t)
+
+        candidates = {}
+        for r in sp_list_t:
+            c = candidates.setdefault(r['code'], {'code': r['code'], 'close': r['close'], 'sources': set(), 'badges': []})
+            c['sources'].add('SP')
+        for r in autosp_list_t:
+            c = candidates.setdefault(r['code'], {'code': r['code'], 'close': r['close'], 'sources': set(), 'badges': []})
+            c['sources'].add('AutoSP')
+            c['badges'] = r.get('pola', [])
+
+        for code, info in candidates.items():
+            bars = all_ohlcv.get(code, [])
+            bar_t1 = next((b for b in bars if b['date'] == date_t1), None)
+            close_entry = info['close']
+            if not bar_t1 or not bar_t1.get('H') or not close_entry: continue
+            gain = (bar_t1['H'] - close_entry) / close_entry * 100
+            if gain >= gain_threshold:
+                results.append({
+                    'Tanggal Entry': date_t, 'Code': code, 'Close Entry': close_entry,
+                    'Tanggal +1': date_t1, 'High T+1': int(bar_t1['H']),
+                    'Gain%': round(gain, 2),
+                    'Sumber': ' + '.join(sorted(info['sources'])),
+                    'Badge': ', '.join(info['badges']) if info['badges'] else '-',
+                })
+    results.sort(key=lambda x: (x['Tanggal Entry'], x['Gain%']), reverse=True)
+    return results
+
+
 def build_vol_sparkline(code, all_ohlcv):
     """Vol sparkline global — bisa dipanggil dari tab mana saja."""
     bars_s = all_ohlcv.get(code, [])
@@ -2178,6 +2238,27 @@ def main():
     with tabs[13]:
         st.markdown(f"**📋 Track Record | Entry → Max High T+1~T+5 | Semua Histori**")
         st.caption("Entry = muncul di pola tsb hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
+
+        # ── Breakout SP & AutoSP ──────────────────────────────────────────
+        st.markdown("**🏆 Breakout SP & AutoSP — Capai Target% Keesokan Hari**")
+        st.caption("Saham yang muncul di StockPick dan/atau AutoSP pada hari T, lalu High T+1 mencapai target gain dari Close T. Sumber & badge pola AutoSP ditandai.")
+        col_lb1, col_lb2, col_lb3 = st.columns([2,2,1])
+        lookback_opt = col_lb1.selectbox("Lookback hari:", [10,20,30,60,"Semua"], index=1, key='sp_autosp_lookback')
+        gain_thresh = col_lb2.number_input("Target gain%:", min_value=1.0, max_value=20.0, value=5.0, step=0.5, key='sp_autosp_gain_thresh')
+        if col_lb3.button("🔍 Hitung", key='btn_sp_autosp_breakout', use_container_width=True):
+            lb_days = None if lookback_opt == "Semua" else lookback_opt
+            with st.spinner("Menghitung breakout SP & AutoSP (bisa agak lama)..."):
+                st.session_state['sp_autosp_breakout_cache'] = build_sp_autosp_breakout(
+                    all_ohlcv, all_dates, lookback_days=lb_days, gain_threshold=gain_thresh)
+
+        breakout_results = st.session_state.get('sp_autosp_breakout_cache')
+        if breakout_results is not None:
+            if breakout_results:
+                st.success(f"{len(breakout_results)} kejadian ditemukan")
+                st.dataframe(pd.DataFrame(breakout_results), use_container_width=True, hide_index=True, height=350)
+            else:
+                st.info("Tidak ada saham yang capai target dalam periode ini.")
+        st.divider()
 
         with st.spinner("Menghitung resume semua pola..."):
             tr_summary = build_trackrecord_summary(all_ohlcv, all_dates, max_hold=5)
