@@ -1222,11 +1222,12 @@ def build_sp_autosp_breakout(all_ohlcv, all_dates, lookback_days=30, gain_thresh
             gain = (bar_t1['H'] - close_entry) / close_entry * 100
             if gain >= gain_threshold:
                 results.append({
-                    'Tanggal Entry': date_t, 'Code': code, 'Close Entry': close_entry,
-                    'Tanggal +1': date_t1, 'High T+1': int(bar_t1['H']),
-                    'Gain%': round(gain, 2),
+                    'Tanggal Entry': date_t, 'Code': code,
                     'Sumber': ' + '.join(sorted(info['sources'])),
                     'Badge': ', '.join(info['badges']) if info['badges'] else '-',
+                    'Close Entry': close_entry,
+                    'Tanggal +1': date_t1, 'High T+1': int(bar_t1['H']),
+                    'Gain%': round(gain, 2),
                 })
     results.sort(key=lambda x: (x['Tanggal Entry'], x['Gain%']), reverse=True)
     return results
@@ -2255,7 +2256,43 @@ def main():
         if breakout_results is not None:
             if breakout_results:
                 st.success(f"{len(breakout_results)} kejadian ditemukan")
-                st.dataframe(pd.DataFrame(breakout_results), use_container_width=True, hide_index=True, height=350)
+                _sumber_color = {'SP': ('#B5D4F4','#0C447C'), 'AutoSP': ('#E3F8EF','#0F6B4C'), 'SP + AutoSP': ('#FFF1E0','#8A4B00')}
+                _bo_rows = []
+                for r in breakout_results:
+                    sb, sf = _sumber_color.get(r['Sumber'], ('#D3D1C7','#2C2C2A'))
+                    sumber_chip = f'<span style="background:{sb};color:{sf};font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px">{r["Sumber"]}</span>'
+                    badge_html = ''
+                    if r['Badge'] != '-':
+                        for b in r['Badge'].split(', '):
+                            badge_html += f'<span style="background:#EEEDFE;color:#3C3489;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;margin-right:3px">{b}</span>'
+                    else:
+                        badge_html = '<span style="color:#888;font-size:11px">-</span>'
+                    _bo_rows.append(
+                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                        f'<td style="padding:7px 10px;font-size:12px">{r["Tanggal Entry"]}</td>'
+                        f'<td style="padding:7px 10px;font-weight:600;font-size:13px">{r["Code"]}</td>'
+                        f'<td style="padding:7px 10px;text-align:center">{sumber_chip}</td>'
+                        f'<td style="padding:7px 10px">{badge_html}</td>'
+                        f'<td style="padding:7px 10px;text-align:right;font-size:12px">{r["Close Entry"]}</td>'
+                        f'<td style="padding:7px 10px;font-size:12px">{r["Tanggal +1"]}</td>'
+                        f'<td style="padding:7px 10px;text-align:right;font-size:12px">{r["High T+1"]}</td>'
+                        f'<td style="padding:7px 10px;text-align:right;color:#4ade80;font-weight:600">+{r["Gain%"]}%</td>'
+                        '</tr>'
+                    )
+                _bo_tbl = (
+                    '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                    '<th style="padding:7px 10px;text-align:left;color:#888;font-weight:400;font-size:11px">Tanggal Entry</th>'
+                    '<th style="padding:7px 10px;text-align:left;color:#888;font-weight:400;font-size:11px">Code</th>'
+                    '<th style="padding:7px 10px;text-align:center;color:#888;font-weight:400;font-size:11px">Sumber</th>'
+                    '<th style="padding:7px 10px;text-align:left;color:#888;font-weight:400;font-size:11px">Badge</th>'
+                    '<th style="padding:7px 10px;text-align:right;color:#888;font-weight:400;font-size:11px">Close Entry</th>'
+                    '<th style="padding:7px 10px;text-align:left;color:#888;font-weight:400;font-size:11px">Tanggal +1</th>'
+                    '<th style="padding:7px 10px;text-align:right;color:#888;font-weight:400;font-size:11px">High T+1</th>'
+                    '<th style="padding:7px 10px;text-align:right;color:#888;font-weight:400;font-size:11px">Gain%</th>'
+                    '</tr></thead><tbody>' + ''.join(_bo_rows) + '</tbody></table>'
+                )
+                st.html(_bo_tbl)
             else:
                 st.info("Tidak ada saham yang capai target dalam periode ini.")
         st.divider()
@@ -2399,6 +2436,10 @@ def main():
                     chg_c = '#f87171' if chg_raw.startswith('-') else ('#4ade80' if chg_raw not in ('','0.00%') else '#888')
                     tp1_hit = e.get('tp1_hit')
                     tp2_hit = e.get('tp2_hit')
+                    hari_tp1 = e.get('hari_tp1')
+                    hari_berjalan = e.get('hari_berjalan')
+                    tp1_new = tp1_hit and str(hari_tp1) not in ('', 'None') and str(hari_tp1) == str(hari_berjalan)
+                    new_badge = '<span style="background:#fed7aa;color:#9a3412;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px">🆕 NEW</span>' if tp1_new else ''
                     tp1_txt = f"{e.get('harga_tp1','')} {'✅' if tp1_hit else ''}"
                     tp2_txt = f"{e.get('harga_tp2','')} {'✅' if tp2_hit else ''}"
                     tp1_c = '#4ade80' if tp1_hit else '#888'
@@ -2410,7 +2451,7 @@ def main():
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
-                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp1_c}">{tp1_txt}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp1_c}">{tp1_txt}{new_badge}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp2_c}">{tp2_txt}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:11px">{e.get("status","")}</td>'
                         '</tr>'
