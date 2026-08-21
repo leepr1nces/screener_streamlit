@@ -610,9 +610,9 @@ def scan_bos(all_ohlcv, avg_vols, target, window=7):
         prev4_vols = [b['V'] for b in bars[-5:-1] if b.get('V', 0) > 0]
         if prev4_vols:
             vol_kering = today['V'] < np.mean(prev4_vols) * 0.7
-        if cavg and vol_kering:   entry = "CAVG+VolKering"; score = 100
+        if cavg and vol_kering:   entry = "CAVG+LowV";       score = 100
         elif cavg:                 entry = "CAVG";           score = 70
-        elif vol_kering:           entry = "VolKering";      score = 70
+        elif vol_kering:           entry = "LowV";           score = 70
         else:                      entry = "Tunggu";         score = 40
         score += len(spike_days) * 10 + (30 if in_wl else 0)
         chg0 = (today['C'] - today['P']) / today['P'] * 100 if today.get('P') and today['P'] > 0 else 0
@@ -2387,7 +2387,7 @@ def main():
                 _mc_html = _mc_html.replace(_marker, _inject + _marker, 1)
             else:
                 _mc_html = _inject + _mc_html
-            components.html(_mc_html, height=1500, scrolling=True)
+            components.html(_mc_html, height=950, scrolling=True)
         except FileNotFoundError:
             st.error("File `miracle_cuan.html` tidak ditemukan di root repo. Upload file tersebut ke repo `screener_streamlit` (sejajar dengan app.py).")
 
