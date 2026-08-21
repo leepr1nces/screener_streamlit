@@ -813,19 +813,23 @@ def scan_ttx(all_ohlcv, avg_vols, target, hvp_thresh=8.0, gap_min=3, gap_max=15,
 
 
 def get_data_folder_signature(folder="data"):
-    """Fingerprint isi folder data/ (nama file + waktu modif + ukuran) — dipakai sebagai
-    cache key, supaya cache otomatis invalid begitu ada file baru/berubah, tanpa perlu
-    baca ulang XLS yang sudah pernah diproses."""
+    """Fingerprint isi folder data/ (nama file + ukuran) — dipakai sebagai cache key,
+    supaya cache otomatis invalid begitu ada file baru/berubah. Sengaja TIDAK pakai
+    waktu modifikasi file (mtime) karena beberapa platform deploy (termasuk kemungkinan
+    Streamlit Cloud via git checkout) bisa me-reset mtime semua file jadi sama, yang
+    bikin fingerprint gagal berubah walau isi folder sebenarnya sudah beda."""
     import glob
     files = sorted(glob.glob(f"{folder}/*.xls") + glob.glob(f"{folder}/*.xlsx"))
-    sig = tuple((os.path.basename(f), os.path.getmtime(f), os.path.getsize(f)) for f in files)
+    sig = tuple((os.path.basename(f), os.path.getsize(f)) for f in files)
     return sig
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=90)
 def load_from_folder_cached(folder, _signature):
     """Versi cached dari load_from_folder — _signature dipakai Streamlit sebagai cache
-    key (nilainya sendiri tidak dipakai di dalam fungsi, makanya prefix underscore)."""
+    key (nilainya sendiri tidak dipakai di dalam fungsi, makanya prefix underscore).
+    ttl=90 detik sebagai jaring pengaman tambahan — data paling lama basi 90 detik
+    meski karena suatu sebab fingerprint tidak berubah."""
     return load_from_folder(folder)
 
 
