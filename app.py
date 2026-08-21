@@ -913,9 +913,9 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
 
     add(boa_full, 'BOA✅')
     add(boa_near, 'BOA~')
-    add([r for r in p1_list  if r.get('signal') == 'Kering'], 'P1')
-    add([r for r in p3_list  if 'B' in str(r.get('signal',''))], 'P3')
-    add([r for r in ol_list  if r.get('ol_count',0) >= 3], 'OL3')
+    add(p1_list, 'P1')
+    add([r for r in p3_list  if 'B' in str(r.get('trigger',''))], 'P3')
+    add([r for r in ol_list  if r.get('days') == '3H'], 'OL3')
     add([r for r in bos_list if r.get('entry','') != 'Tunggu'], 'BOS')
     add([r for r in boh_list if r.get('vol_kering')], 'BOH')
     add([r for r in ttx_list if r.get('priority') == 0], 'TTx🔔')
@@ -1056,7 +1056,7 @@ PATTERN_TRACKRECORD_CONFIG = {
     'TTx': lambda all_ohlcv, avg_vols, date_t: [
         r for r in scan_ttx(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('priority') == 0],
     'P1': lambda all_ohlcv, avg_vols, date_t: [
-        r for r in scan_p1(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('signal') == 'Kering'],
+        r for r in scan_p1(all_ohlcv, avg_vols, date_t) if r['in_wl']],
     'Divergen': lambda all_ohlcv, avg_vols, date_t: [
         r for r in scan_divergen(all_ohlcv, avg_vols, date_t) if r['in_wl']],
 }
@@ -1531,7 +1531,7 @@ def main():
         add_pola([r for r in bos_list if r.get('entry','')!='Tunggu'], 'BOS')
         add_pola([r for r in boh_list if r.get('vol_kering')], 'BOH')
         add_pola([r for r in ttx_list if r.get('priority')==0], 'TTx🔔')
-        add_pola([r for r in p1_list if r.get('signal')=='Kering'], 'P1')
+        add_pola([r for r in p1_list], 'P1')
         add_pola(sp_list, 'SP')
         add_pola(div_list, 'Div')
 
@@ -1575,7 +1575,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan","🔍 Cari Saham"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -2525,6 +2525,102 @@ def main():
                 st.html(_tbl2)
         else:
             st.caption(f"⚠️ Gagal ambil statistik: {_sd.get('message','unknown error')}")
+
+    # Tab Cari Saham — kebalikan dari tab lain: cari 1 kode, lihat pola apa saja yang lolos
+    with tabs[15]:
+        st.markdown("### 🔍 Cari Saham")
+        st.caption("Ketik kode saham — lihat semua pola yang lolos untuk saham itu hari ini.")
+        search_code = st.text_input("Kode saham:", value="", placeholder="Contoh: CENT", key="search_stock_code").strip().upper()
+
+        if search_code:
+            bars_s = all_ohlcv.get(search_code, [])
+            if not bars_s or bars_s[-1]['date'] != target:
+                st.warning(f"Kode **{search_code}** tidak ditemukan di data hari ini ({target}), atau kode salah.")
+            else:
+                today_bar = bars_s[-1]
+                chg_s = (today_bar['C']-today_bar['P'])/today_bar['P']*100 if today_bar.get('P') and today_bar['P']>0 else 0
+                in_wl_s = search_code in ALL_WL
+
+                c1, c2, c3 = st.columns([2,3,3])
+                with c1:
+                    st.metric(f"{'★ ' if in_wl_s else ''}{search_code}", f"{int(today_bar['C'])}", f"{chg_s:+.2f}%")
+                with c2:
+                    st.caption("Trend 14H")
+                    st.html(build_price_sparkline(search_code, all_ohlcv))
+                with c3:
+                    st.caption("Vol Trend")
+                    st.html(build_vol_sparkline(search_code, all_ohlcv))
+
+                st.divider()
+                st.markdown("**Pola yang lolos hari ini:**")
+
+                matches = []  # (badge_label, color_bg, color_text, detail_text)
+
+                boa_full_hit = next((r for r in boa_full if r['code']==search_code), None)
+                boa_near_hit = next((r for r in boa_near if r['code']==search_code), None)
+                if boa_full_hit:
+                    matches.append(('BOA ✅ Full', '#EEEDFE','#3C3489', f"Score {boa_full_hit.get('score','-')}"))
+                elif boa_near_hit:
+                    matches.append(('BOA ~ Near', '#EEEDFE','#534AB7', f"Score {boa_near_hit.get('score','-')}"))
+
+                p1_hit = next((r for r in p1_list if r['code']==search_code), None)
+                if p1_hit:
+                    matches.append(('P1 Kering', '#FCEBEB','#791F1F', f"H+{p1_hit.get('lag','-')} dari spike"))
+
+                p3_hit = next((r for r in p3_list if r['code']==search_code), None)
+                if p3_hit:
+                    matches.append(('P3', '#FBEAF0','#4B1528', p3_hit.get('trigger','-')))
+
+                ol_hit = next((r for r in ol_list if r['code']==search_code), None)
+                if ol_hit:
+                    matches.append(('OL Berturut', '#EAF3DE','#27500A', f"{ol_hit.get('days','-')}: {ol_hit.get('seq','-')}"))
+
+                sv_hit = next((r for r in sv_list if r['code']==search_code), None)
+                if sv_hit:
+                    best_v = sv_hit.get('best', {})
+                    matches.append(('SV', '#FFF6DA','#7A5B00', f"{sv_hit.get('n','-')}x spike, terbaik +{best_v.get('hvp','-')}%"))
+
+                alert_hit = next((r for r in alert_list if r['code']==search_code), None)
+                if alert_hit:
+                    matches.append(('Alert Reversal', '#FDE8E8','#8B1E1E', f"Drop {alert_hit.get('acc_drop','-')}% dlm 5H"))
+
+                bos_hit = next((r for r in bos_list if r['code']==search_code and r.get('entry','')!='Tunggu'), None)
+                if bos_hit:
+                    matches.append(('BOS', '#E1F5EE','#085041', f"Entry {bos_hit.get('entry','-')}"))
+
+                boh_hit = next((r for r in boh_list if r['code']==search_code and r.get('vol_kering')), None)
+                if boh_hit:
+                    matches.append(('BOH', '#FAECE7','#712B13', f"H+{boh_hit.get('days_after','-')} stlh gap"))
+
+                ttx_hit = next((r for r in ttx_list if r['code']==search_code and r.get('priority')==0), None)
+                if ttx_hit:
+                    matches.append(('TTx 🔔', '#FAEEDA','#633806', "Reminder aktif"))
+
+                sp_hit = next((r for r in sp_list if r['code']==search_code and r.get('in_wl')), None)
+                if sp_hit:
+                    oc1_txt = " + OC1" if sp_hit.get('open_pct',0) > 1 else ""
+                    matches.append(('StockPick', '#E6F1FB','#0C447C', f"Chg {sp_hit.get('chg','-')}%{oc1_txt}"))
+
+                div_hit = next((r for r in div_list if r['code']==search_code), None)
+                if div_hit:
+                    dh = div_hit.get('desc_high')
+                    dh_txt = f", Desc-High {dh['window']}H" if dh else ""
+                    matches.append(('Divergen', '#E3F8EF','#0F6B4C', f"Vol {div_hit.get('vol_ratio_pct','-'):.0f}% (W{div_hit.get('window_days','-')}H){dh_txt}"))
+
+                if matches:
+                    badge_html = ''
+                    for label, bg, txt, detail in matches:
+                        badge_html += (
+                            f'<div style="display:inline-flex;flex-direction:column;background:{bg};color:{txt};'
+                            f'border-radius:8px;padding:8px 12px;margin:0 8px 8px 0;min-width:120px">'
+                            f'<span style="font-weight:700;font-size:13px">{label}</span>'
+                            f'<span style="font-size:11px;opacity:0.85">{detail}</span>'
+                            f'</div>'
+                        )
+                    st.html(f'<div style="display:flex;flex-wrap:wrap">{badge_html}</div>')
+                    st.caption(f"Total {len(matches)} pola lolos untuk {search_code} hari ini.")
+                else:
+                    st.info(f"{search_code} tidak lolos pola manapun hari ini.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
