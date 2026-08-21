@@ -568,12 +568,13 @@ def scan_stockpick(all_ohlcv, avg_vols, target,
         doji= bool(b0.get('O') and b0['O']>0 and abs(b0['C']-b0['O'])/b0['O']*100 < 0.8)
         candle = ('OL+Doji' if ol and doji else 'OL' if ol else
                   'Doji'    if doji else 'Hijau' if green else 'Merah')
+        open_pct = pct(b0['O'], b0['P']) if b0.get('O') and b0['O'] > 0 else 0
         results.append({
             'code': code, 'in_wl': in_wl, 'close': int(b0['C']),
             'chg': round(chg0,2), 'hvp': round(hvp0,2),
             'vol': round(vr0,2), 'vol_vs_prev': round(vp,2),
             'score': round(sc,1), 'max_chg7': round(max_c7h,2),
-            'candle': candle,
+            'candle': candle, 'open_pct': round(open_pct,2),
         })
     results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
@@ -1041,14 +1042,36 @@ def render_candlestick(code, all_ohlcv, n_days=30, chart_key='chart'):
 # ══════════════════════════════════════════════════════════════════════════════
 # TRACK RECORD — StockPick Performance
 # ══════════════════════════════════════════════════════════════════════════════
-def build_trackrecord(all_ohlcv, all_dates, max_hold=5):
+# Daftar pola yang bisa di-backtest di tab TrackRecord — tiap pola punya cara sendiri
+# menentukan siapa saja yang "lolos" (entry) di suatu tanggal.
+PATTERN_TRACKRECORD_CONFIG = {
+    'StockPick': lambda all_ohlcv, avg_vols, date_t: [
+        r for r in scan_stockpick(all_ohlcv, avg_vols, date_t) if r['in_wl']],
+    'BOA': lambda all_ohlcv, avg_vols, date_t: [
+        r for r in scan_boa(all_ohlcv, avg_vols, date_t)[0] if r['in_wl']],
+    'BOS': lambda all_ohlcv, avg_vols, date_t: [
+        r for r in scan_bos(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('entry','') != 'Tunggu'],
+    'BOH': lambda all_ohlcv, avg_vols, date_t: [
+        r for r in scan_boh(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('vol_kering')],
+    'TTx': lambda all_ohlcv, avg_vols, date_t: [
+        r for r in scan_ttx(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('priority') == 0],
+    'P1': lambda all_ohlcv, avg_vols, date_t: [
+        r for r in scan_p1(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('signal') == 'Kering'],
+    'Divergen': lambda all_ohlcv, avg_vols, date_t: [
+        r for r in scan_divergen(all_ohlcv, avg_vols, date_t) if r['in_wl']],
+}
+
+
+def build_trackrecord(all_ohlcv, all_dates, max_hold=5, pattern='StockPick'):
     """
-    Hitung track record StockPick dari semua data historis.
-    - Entry: emiten lolos StockPick di hari T
+    Hitung track record sebuah pola dari semua data historis.
+    - Entry: emiten lolos pola tsb di hari T
     - Hasil: High tertinggi T+1 s/d T+5
     - Gain%: (Max High - Close Entry) / Close Entry * 100
     """
     import numpy as np
+
+    get_entries = PATTERN_TRACKRECORD_CONFIG.get(pattern, PATTERN_TRACKRECORD_CONFIG['StockPick'])
 
     # Buat dummy avg_vols dari semua data
     avg_vols = {}
@@ -1061,16 +1084,15 @@ def build_trackrecord(all_ohlcv, all_dates, max_hold=5):
     dates_sorted = sorted(all_dates)
 
     for i, date_t in enumerate(dates_sorted):
-        # Scan StockPick di hari T
-        sp = scan_stockpick(all_ohlcv, avg_vols, date_t)
-        sp_wl = [r for r in sp if r['in_wl']]
-        if not sp_wl:
+        # Scan pola di hari T
+        entries = get_entries(all_ohlcv, avg_vols, date_t)
+        if not entries:
             continue
 
         # Tanggal T+1 s/d T+5
         future_dates = dates_sorted[i+1:i+1+max_hold]
 
-        for r in sp_wl:
+        for r in entries:
             code = r['code']
             close_entry = r['close']
             bars = all_ohlcv.get(code, [])
@@ -1119,6 +1141,35 @@ def build_trackrecord(all_ohlcv, all_dates, max_hold=5):
             })
 
     return records
+
+
+def build_trackrecord_summary(all_ohlcv, all_dates, max_hold=5):
+    """Resume ringkas Win Rate semua pola sekaligus — dipakai buat tabel resume
+    di atas tab TrackRecord, sebelum user pilih 1 pola untuk dilihat detail."""
+    summary = []
+    for pattern in PATTERN_TRACKRECORD_CONFIG:
+        records = build_trackrecord(all_ohlcv, all_dates, max_hold=max_hold, pattern=pattern)
+        if not records:
+            summary.append({'Pola': pattern, 'Total Entry': 0, '✅ Profit': 0, '🟡 Tipis': 0,
+                             '❌ Loss': 0, '⏳ Running': 0, 'Win Rate': '-', 'Avg Gain%': '-'})
+            continue
+        total = len(records)
+        profit = sum(1 for r in records if r['Status'] == '✅ Profit')
+        tipis  = sum(1 for r in records if r['Status'] == '🟡 Tipis')
+        loss   = sum(1 for r in records if r['Status'] == '❌ Loss')
+        running = sum(1 for r in records if r['Status'] == '⏳ Running')
+        done = profit + tipis + loss
+        winrate = round(profit / done * 100, 1) if done > 0 else 0
+        gains = [r['Gain%'] for r in records if r['Gain%'] is not None]
+        avg_gain = round(sum(gains)/len(gains), 2) if gains else 0
+        summary.append({
+            'Pola': pattern, 'Total Entry': total, '✅ Profit': profit, '🟡 Tipis': tipis,
+            '❌ Loss': loss, '⏳ Running': running,
+            'Win Rate': f"{winrate}%" if done > 0 else '-',
+            'Avg Gain%': f"{avg_gain:+.2f}%" if gains else '-',
+        })
+    summary.sort(key=lambda x: x['Total Entry'], reverse=True)
+    return summary
 
 
 def build_vol_sparkline(code, all_ohlcv):
@@ -1752,9 +1803,8 @@ def main():
                 wl  = '★ ' if r.get('in_wl') else ''
 
                 candle_color = '#4ade80' if 'Hijau' in candle else ('#f87171' if 'Merah' in candle else '#fbbf24')
-                # URL Miracle Cuan per saham
-                _mc_base_row = "https://illustrious-florentine-5ac495.netlify.app/docs/miracle_cuan.html"
-                mc_url_row = st.session_state.get('miracle_url', _mc_base_row) + f"&selected={r['code']}" if '?' in st.session_state.get('miracle_url', '') else _mc_base_row + f"?data={r['code']}:{r['close']}&selected={r['code']}" 
+                open_pct_r = r.get('open_pct', 0)
+                oc1_badge = '<span style="background:#DCEBFF;color:#0C447C;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px">OC1</span>' if open_pct_r > 1 else ''
 
                 sp_rows_html.append(
                     '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
@@ -1769,9 +1819,7 @@ def main():
                     '<td style="padding:7px 10px;text-align:right;color:' + vpc + ';font-weight:500">' + str(round(vp,2)) + 'x</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + sm + str(round(mc,2)) + '%</td>'
                     '<td style="padding:7px 10px;text-align:center;color:' + candle_color + ';font-size:12px">' + candle + '</td>'
-                    '<td style="padding:7px 10px;text-align:center">'
-                    + '<a href="' + mc_url_row + '" target="_blank" style="text-decoration:none;font-size:16px">🌟</a>'
-                    + '</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + oc1_badge + '</td>'
                     '</tr>'
                 )
 
@@ -1789,6 +1837,7 @@ def main():
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol/Prev</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">mc8%</th>'
                 '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Candle</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">OC1</th>'
                 '</tr></thead><tbody>' + ''.join(sp_rows_html) + '</tbody></table>'
             )
             st.html(sp_tbl_html)
@@ -1799,7 +1848,8 @@ def main():
                 "**Cara baca:** Chg% = kenaikan close dari kemarin | "
                 "H/P% = high dari kemarin (≤7% = tidak overbought) | "
                 "Vol/Prev = volume hari ini vs kemarin (>1.0 = naik) | "
-                "mc7% = max close 7H terakhir (harus <7%)"
+                "mc7% = max close 7H terakhir (harus <7%) | "
+                "OC1 = Open hari ini >1% di atas Prev Close"
             )
         else:
             st.info("Tidak ada saham yang memenuhi kriteria Stockpick saat ini.")
@@ -2126,11 +2176,21 @@ def main():
             st.info("Belum ada sinyal Auto StockPick hari ini.")
     # Tab Track Record
     with tabs[13]:
-        st.markdown(f"**📋 Track Record StockPick | Entry → Max High T+1~T+5 | Semua Histori**")
-        st.caption("Entry = muncul di StockPick hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
+        st.markdown(f"**📋 Track Record | Entry → Max High T+1~T+5 | Semua Histori**")
+        st.caption("Entry = muncul di pola tsb hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
 
-        with st.spinner("Menghitung track record dari semua data..."):
-            tr_records = build_trackrecord(all_ohlcv, all_dates, max_hold=5)
+        with st.spinner("Menghitung resume semua pola..."):
+            tr_summary = build_trackrecord_summary(all_ohlcv, all_dates, max_hold=5)
+
+        st.markdown("**📊 Resume Semua Pola**")
+        st.dataframe(pd.DataFrame(tr_summary), use_container_width=True, hide_index=True)
+        st.divider()
+
+        pattern_options = list(PATTERN_TRACKRECORD_CONFIG.keys())
+        pattern_sel = st.selectbox("🔍 Lihat detail pola:", pattern_options, index=0, key='tr_pattern_select')
+
+        with st.spinner(f"Menghitung detail track record {pattern_sel}..."):
+            tr_records = build_trackrecord(all_ohlcv, all_dates, max_hold=5, pattern=pattern_sel)
 
         if tr_records:
             df_tr = pd.DataFrame(tr_records)
@@ -2184,7 +2244,7 @@ def main():
                 sel_tr = st.selectbox('📊 Chart saham:', tr_codes, key='tr_chart_select')
                 render_candlestick(sel_tr, all_ohlcv, n_days=30, chart_key='tr_chart2_'+sel_tr)
         else:
-            st.info("Belum ada data track record. Upload lebih banyak file screener ke folder data/.")
+            st.info(f"Belum ada data track record untuk pola {pattern_sel}. Upload lebih banyak file screener ke folder data/.")
 
     # Tab Miracle Cuan
     with tabs[14]:
