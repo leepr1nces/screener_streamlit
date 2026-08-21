@@ -2451,7 +2451,7 @@ def main():
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
-                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp1_c}">{tp1_txt}{new_badge}</td>'
+                        f'<td style="padding:6px 8px;font-size:12px;color:{tp1_c}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">{new_badge}<span>{tp1_txt}</span></div></td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp2_c}">{tp2_txt}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:11px">{e.get("status","")}</td>'
                         '</tr>'
