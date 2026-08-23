@@ -779,8 +779,13 @@ def scan_ttx(all_ohlcv, avg_vols, target, hvp_thresh=8.0, gap_min=3, gap_max=15,
         return bar['V'] > np.mean(vols) if vols else False
 
     results = []
-    for code, bars in all_ohlcv.items():
-        if code not in ALL_WL or len(bars) < 6: continue
+    for code, bars_full in all_ohlcv.items():
+        if code not in ALL_WL: continue
+        # Potong ke tanggal target — WAJIB, biar scan_ttx bisa dipakai buat cek tanggal
+        # historis juga (mis. di tab TrackRecord / Pola Trading Log), bukan cuma hari ini.
+        target_idx = next((i for i, b in enumerate(bars_full) if b['date'] == target), None)
+        if target_idx is None or target_idx < 5: continue
+        bars = bars_full[:target_idx+1]
         spikes = []
         for i in range(4, len(bars)):
             if is_spike(bars[i], bars[i-4:i]):
@@ -1046,19 +1051,19 @@ def render_candlestick(code, all_ohlcv, n_days=30, chart_key='chart'):
 # menentukan siapa saja yang "lolos" (entry) di suatu tanggal.
 PATTERN_TRACKRECORD_CONFIG = {
     'StockPick': lambda all_ohlcv, avg_vols, date_t: [
-        r for r in scan_stockpick(all_ohlcv, avg_vols, date_t) if r['in_wl']],
+        r for r in scan_stockpick(truncate_ohlcv_to_date(all_ohlcv, date_t), avg_vols, date_t) if r['in_wl']],
     'BOA': lambda all_ohlcv, avg_vols, date_t: [
-        r for r in scan_boa(all_ohlcv, avg_vols, date_t)[0] if r['in_wl']],
+        r for r in scan_boa(truncate_ohlcv_to_date(all_ohlcv, date_t), avg_vols, date_t)[0] if r['in_wl']],
     'BOS': lambda all_ohlcv, avg_vols, date_t: [
-        r for r in scan_bos(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('entry','') != 'Tunggu'],
+        r for r in scan_bos(truncate_ohlcv_to_date(all_ohlcv, date_t), avg_vols, date_t) if r['in_wl'] and r.get('entry','') != 'Tunggu'],
     'BOH': lambda all_ohlcv, avg_vols, date_t: [
-        r for r in scan_boh(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('vol_kering')],
+        r for r in scan_boh(truncate_ohlcv_to_date(all_ohlcv, date_t), avg_vols, date_t) if r['in_wl'] and r.get('vol_kering')],
     'TTx': lambda all_ohlcv, avg_vols, date_t: [
         r for r in scan_ttx(all_ohlcv, avg_vols, date_t) if r['in_wl'] and r.get('priority') == 0],
     'P1': lambda all_ohlcv, avg_vols, date_t: [
-        r for r in scan_p1(all_ohlcv, avg_vols, date_t) if r['in_wl']],
+        r for r in scan_p1(truncate_ohlcv_to_date(all_ohlcv, date_t), avg_vols, date_t) if r['in_wl']],
     'Divergen': lambda all_ohlcv, avg_vols, date_t: [
-        r for r in scan_divergen(all_ohlcv, avg_vols, date_t) if r['in_wl']],
+        r for r in scan_divergen(truncate_ohlcv_to_date(all_ohlcv, date_t), avg_vols, date_t) if r['in_wl']],
 }
 
 
@@ -1190,20 +1195,21 @@ def build_sp_autosp_breakout(all_ohlcv, all_dates, lookback_days=30, gain_thresh
         if i+1 >= len(dates_sorted): continue
         date_t1 = dates_sorted[i+1]
 
-        sp_list_t = [r for r in scan_stockpick(all_ohlcv, avg_vols, date_t) if r['in_wl']]
-        boa_full_t, boa_near_t = scan_boa(all_ohlcv, avg_vols, date_t)
-        p1_list_t = scan_p1(all_ohlcv, avg_vols, date_t)
-        p3_list_t = scan_p3(all_ohlcv, avg_vols, date_t)
-        ol_list_t = scan_ol_seq(all_ohlcv, avg_vols, date_t)
-        sv_list_t = scan_sv(all_ohlcv, avg_vols, date_t)
-        alert_list_t = scan_alert(all_ohlcv, avg_vols, date_t)
-        bos_list_t = scan_bos(all_ohlcv, avg_vols, date_t)
-        boh_list_t = scan_boh(all_ohlcv, avg_vols, date_t)
+        ohlcv_t = truncate_ohlcv_to_date(all_ohlcv, date_t)
+        sp_list_t = [r for r in scan_stockpick(ohlcv_t, avg_vols, date_t) if r['in_wl']]
+        boa_full_t, boa_near_t = scan_boa(ohlcv_t, avg_vols, date_t)
+        p1_list_t = scan_p1(ohlcv_t, avg_vols, date_t)
+        p3_list_t = scan_p3(ohlcv_t, avg_vols, date_t)
+        ol_list_t = scan_ol_seq(ohlcv_t, avg_vols, date_t)
+        sv_list_t = scan_sv(ohlcv_t, avg_vols, date_t)
+        alert_list_t = scan_alert(ohlcv_t, avg_vols, date_t)
+        bos_list_t = scan_bos(ohlcv_t, avg_vols, date_t)
+        boh_list_t = scan_boh(ohlcv_t, avg_vols, date_t)
         ttx_list_t = scan_ttx(all_ohlcv, avg_vols, date_t)
-        div_list_t = scan_divergen(all_ohlcv, avg_vols, date_t)
+        div_list_t = scan_divergen(ohlcv_t, avg_vols, date_t)
         autosp_list_t = auto_stockpick(boa_full_t, boa_near_t, p1_list_t, p3_list_t, ol_list_t,
                                         sv_list_t, alert_list_t, sp_list_t, bos_list_t, boh_list_t,
-                                        ttx_list_t, all_ohlcv, date_t, div_list_t)
+                                        ttx_list_t, ohlcv_t, date_t, div_list_t)
 
         candidates = {}
         for r in sp_list_t:
@@ -1233,6 +1239,24 @@ def build_sp_autosp_breakout(all_ohlcv, all_dates, lookback_days=30, gain_thresh
     return results
 
 
+def truncate_ohlcv_to_date(all_ohlcv, date_t):
+    """Potong all_ohlcv supaya bar TERAKHIR tiap kode = date_t. WAJIB dipakai sebelum
+    manggil scan_* function untuk tanggal HISTORIS (bukan hari ini) — karena hampir
+    semua scan_* function syaratkan bars[-1]['date']==target, yang cuma valid kalau
+    target = tanggal paling baru di seluruh dataset. Tanpa truncate, scan untuk
+    tanggal lama akan selalu gagal (list kosong)."""
+    truncated = {}
+    for code, bars in all_ohlcv.items():
+        idx = None
+        for i, b in enumerate(bars):
+            if b['date'] == date_t:
+                idx = i
+                break
+        if idx is not None:
+            truncated[code] = bars[:idx+1]
+    return truncated
+
+
 def get_pattern_badges_for_date(all_ohlcv, avg_vols, date_t):
     """Hitung semua pola yang lolos di tanggal date_t (histori), return {code: [label,...]}.
     Dipakai buat nampilin badge pola 'saat entry dibuat' di tabel Trading Log."""
@@ -1241,19 +1265,20 @@ def get_pattern_badges_for_date(all_ohlcv, avg_vols, date_t):
         for r in codes_list:
             result.setdefault(r['code'], []).append(label)
     try:
-        boa_full_t, boa_near_t = scan_boa(all_ohlcv, avg_vols, date_t)
+        ohlcv_t = truncate_ohlcv_to_date(all_ohlcv, date_t)
+        boa_full_t, boa_near_t = scan_boa(ohlcv_t, avg_vols, date_t)
         _add(boa_full_t, 'BOA✅')
         _add(boa_near_t, 'BOA~')
-        _add(scan_p1(all_ohlcv, avg_vols, date_t), 'P1')
-        _add([r for r in scan_p3(all_ohlcv, avg_vols, date_t) if 'B' in str(r.get('trigger',''))], 'P3')
-        _add([r for r in scan_ol_seq(all_ohlcv, avg_vols, date_t) if r.get('days')=='3H'], 'OL3')
-        _add(scan_sv(all_ohlcv, avg_vols, date_t), 'SV')
-        _add(scan_alert(all_ohlcv, avg_vols, date_t), 'Alert')
-        _add([r for r in scan_bos(all_ohlcv, avg_vols, date_t) if r.get('entry','') != 'Tunggu'], 'BOS')
-        _add([r for r in scan_boh(all_ohlcv, avg_vols, date_t) if r.get('vol_kering')], 'BOH')
+        _add(scan_p1(ohlcv_t, avg_vols, date_t), 'P1')
+        _add([r for r in scan_p3(ohlcv_t, avg_vols, date_t) if 'B' in str(r.get('trigger',''))], 'P3')
+        _add([r for r in scan_ol_seq(ohlcv_t, avg_vols, date_t) if r.get('days')=='3H'], 'OL3')
+        _add(scan_sv(ohlcv_t, avg_vols, date_t), 'SV')
+        _add(scan_alert(ohlcv_t, avg_vols, date_t), 'Alert')
+        _add([r for r in scan_bos(ohlcv_t, avg_vols, date_t) if r.get('entry','') != 'Tunggu'], 'BOS')
+        _add([r for r in scan_boh(ohlcv_t, avg_vols, date_t) if r.get('vol_kering')], 'BOH')
         _add([r for r in scan_ttx(all_ohlcv, avg_vols, date_t) if r.get('priority') == 0], 'TTx🔔')
-        _add([r for r in scan_stockpick(all_ohlcv, avg_vols, date_t) if r['in_wl']], 'SP')
-        _add([r for r in scan_divergen(all_ohlcv, avg_vols, date_t) if r['in_wl']], 'Div')
+        _add([r for r in scan_stockpick(ohlcv_t, avg_vols, date_t) if r['in_wl']], 'SP')
+        _add([r for r in scan_divergen(ohlcv_t, avg_vols, date_t) if r['in_wl']], 'Div')
     except Exception:
         pass
     return result
