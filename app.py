@@ -1233,6 +1233,51 @@ def build_sp_autosp_breakout(all_ohlcv, all_dates, lookback_days=30, gain_thresh
     return results
 
 
+def get_pattern_badges_for_date(all_ohlcv, avg_vols, date_t):
+    """Hitung semua pola yang lolos di tanggal date_t (histori), return {code: [label,...]}.
+    Dipakai buat nampilin badge pola 'saat entry dibuat' di tabel Trading Log."""
+    result = {}
+    def _add(codes_list, label):
+        for r in codes_list:
+            result.setdefault(r['code'], []).append(label)
+    try:
+        boa_full_t, boa_near_t = scan_boa(all_ohlcv, avg_vols, date_t)
+        _add(boa_full_t, 'BOA✅')
+        _add(boa_near_t, 'BOA~')
+        _add(scan_p1(all_ohlcv, avg_vols, date_t), 'P1')
+        _add([r for r in scan_p3(all_ohlcv, avg_vols, date_t) if 'B' in str(r.get('trigger',''))], 'P3')
+        _add([r for r in scan_ol_seq(all_ohlcv, avg_vols, date_t) if r.get('days')=='3H'], 'OL3')
+        _add(scan_sv(all_ohlcv, avg_vols, date_t), 'SV')
+        _add(scan_alert(all_ohlcv, avg_vols, date_t), 'Alert')
+        _add([r for r in scan_bos(all_ohlcv, avg_vols, date_t) if r.get('entry','') != 'Tunggu'], 'BOS')
+        _add([r for r in scan_boh(all_ohlcv, avg_vols, date_t) if r.get('vol_kering')], 'BOH')
+        _add([r for r in scan_ttx(all_ohlcv, avg_vols, date_t) if r.get('priority') == 0], 'TTx🔔')
+        _add([r for r in scan_stockpick(all_ohlcv, avg_vols, date_t) if r['in_wl']], 'SP')
+        _add([r for r in scan_divergen(all_ohlcv, avg_vols, date_t) if r['in_wl']], 'Div')
+    except Exception:
+        pass
+    return result
+
+
+_ENTRY_BADGE_COLORS = {
+    'BOA✅': ('#EEEDFE','#3C3489'), 'BOA~': ('#EEEDFE','#534AB7'),
+    'P1': ('#FCEBEB','#791F1F'), 'P3': ('#FBEAF0','#4B1528'), 'OL3': ('#EAF3DE','#27500A'),
+    'SV': ('#FFF6DA','#7A5B00'), 'Alert': ('#FDE8E8','#8B1E1E'),
+    'BOS': ('#E1F5EE','#085041'), 'BOH': ('#FAECE7','#712B13'),
+    'TTx🔔': ('#FAEEDA','#633806'), 'SP': ('#E6F1FB','#0C447C'), 'Div': ('#E3F8EF','#0F6B4C'),
+}
+
+
+def render_entry_badges(labels):
+    if not labels:
+        return '<span style="color:#888;font-size:11px">-</span>'
+    html = ''
+    for l in labels:
+        bg, fg = _ENTRY_BADGE_COLORS.get(l, ('#D3D1C7','#2C2C2A'))
+        html += f'<span style="background:{bg};color:{fg};font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">{l}</span>'
+    return html
+
+
 def build_vol_sparkline(code, all_ohlcv):
     """Vol sparkline global — bisa dipanggil dari tab mana saja."""
     bars_s = all_ohlcv.get(code, [])
@@ -2442,6 +2487,12 @@ def main():
             )
 
             running_entries = [e for e in entries if e.get('status') in ('Running','Partial')]
+            _entry_badge_cache = {}
+            def _entry_badges(code, tanggal):
+                if tanggal not in _entry_badge_cache:
+                    _entry_badge_cache[tanggal] = get_pattern_badges_for_date(all_ohlcv, avg_vols, tanggal)
+                return render_entry_badges(_entry_badge_cache[tanggal].get(code, []))
+
             if running_entries:
                 running_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
                 st.markdown(f"**{len(running_entries)} entry masih berjalan**")
@@ -2459,10 +2510,12 @@ def main():
                     tp2_txt = f"{e.get('harga_tp2','')} {'✅' if tp2_hit else ''}"
                     tp1_c = '#4ade80' if tp1_hit else '#888'
                     tp2_c = '#4ade80' if tp2_hit else '#888'
+                    pola_badges = _entry_badges(e.get('code',''), e.get('tanggal',''))
                     _rows.append(
                         '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
                         f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
                         f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
+                        f'<td style="padding:6px 8px">{pola_badges}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
@@ -2476,6 +2529,7 @@ def main():
                     '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
                     '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
                     '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
                     '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
                     '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
                     '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
@@ -2501,10 +2555,12 @@ def main():
                     gain_raw = str(e.get('tp2_pct','') if is_tp2 else e.get('sl_pct',''))
                     gain_display = gain_raw if is_tp2 else ('-' + gain_raw if gain_raw and not gain_raw.startswith('-') else gain_raw)
                     hari_final = e.get('hari_tp2','') if is_tp2 else e.get('hari_sl','')
+                    pola_badges2 = _entry_badges(e.get('code',''), e.get('tanggal',''))
                     _rows2.append(
                         '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
                         f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
                         f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
+                        f'<td style="padding:6px 8px">{pola_badges2}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                         f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{result_color};font-weight:600">{gain_display}</td>'
                         f'<td style="padding:6px 8px;text-align:center;font-size:12px">{hari_final}</td>'
@@ -2516,6 +2572,7 @@ def main():
                     '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
                     '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
                     '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
                     '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
                     '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Gain%</th>'
                     '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
