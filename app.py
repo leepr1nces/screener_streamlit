@@ -161,6 +161,7 @@ def load_uploaded(uploaded_files):
                 'V':   float(row.get('Volume') or 0),
                 'P':   safe_float(row.get('Prev')),
                 'Val': float(row.get('Value') or 0),
+                'T':   str(row.get('Time', '') or ''),
             })
         os.unlink(tmp_path)
     for code in all_ohlcv:
@@ -882,6 +883,7 @@ def load_from_folder(folder="data"):
                 'V': float(row.get('Volume') or 0),
                 'P': safe_float(row.get('Prev')),
                 'Val': float(row.get('Value') or 0),
+                'T': str(row.get('Time', '') or ''),
             })
     for code in all_ohlcv:
         latest_per_date = {}
@@ -1464,6 +1466,63 @@ def main():
                                 p1_list, p3_list, boa_full, boa_near, sv_list)
         sp_list = scan_stockpick(all_ohlcv, avg_vols, target)
 
+        # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
+        # Trading Log ke-2: otomatis, tanpa perlu klik Simpan manual di kalkulator.
+        # TP1 default 5%, TP2 default 13%, SL default 5% (dari Close hari itu).
+        # HANYA jalan kalau data hari ini sudah dari snapshot CLOSING (jam 16:10 ke atas)
+        # — bukan dari upload intraday (10:00/11:59/14:30), supaya Close yang tercatat
+        # adalah harga penutupan resmi, bukan harga tengah hari yang masih bisa berubah.
+        _today_bars_sample = [b[-1] for b in data_today.values() if b]
+        _today_time = next((b.get('T','') for b in _today_bars_sample if b.get('T')), '')
+        _is_closing_snapshot = _today_time >= '16:10:00'
+        st.session_state["sp_log_time_check"] = (
+            f"Data jam {_today_time or '?'} — {'✅ closing, StockPick Log diproses' if _is_closing_snapshot else '⏳ belum closing (butuh ≥16:10), StockPick Log ditunda'}"
+        )
+        if _is_closing_snapshot:
+            try:
+                import requests as _requests_sp
+                _sp_wl_auto = [r for r in sp_list if r.get('in_wl')]
+                _sp_entries = []
+                for _r in _sp_wl_auto:
+                    _close = _r['close']
+                    _sp_entries.append({
+                        "tanggal": target, "code": _r['code'], "close_entry": _close,
+                        "tp1_pct": 5, "harga_tp1": round(_close * 1.05),
+                        "tp2_pct": 13, "harga_tp2": round(_close * 1.13),
+                        "use_sl": True, "sl_pct": 5, "harga_sl": round(_close * 0.95),
+                    })
+                _sp_fingerprint = _hashlib.md5(
+                    str(sorted((e['code'], e['close_entry']) for e in _sp_entries)).encode()
+                ).hexdigest()[:12]
+                _sp_log_key = f"sp_log_sent_{target}_{_sp_fingerprint}"
+                if not st.session_state.get(_sp_log_key) and _sp_entries:
+                    _resp_sp = _requests_sp.post(
+                        "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                        json={"action": "bulk_add_entries", "sheet": "StockPick Log", "entries": _sp_entries},
+                        timeout=20
+                    )
+                    st.session_state["sp_log_last_result"] = (
+                        f"✅ StockPick Log {target}: {_resp_sp.json().get('result',{})}" if _resp_sp.ok
+                        else f"⚠️ StockPick Log gagal (HTTP {_resp_sp.status_code})"
+                    )
+                    st.session_state[_sp_log_key] = True
+            except Exception as _e_sp:
+                st.session_state["sp_log_last_result"] = f"⚠️ StockPick Log gagal: {_e_sp}"
+
+        # ── Auto-update TP/SL untuk StockPick Log juga (pakai data_today yang sama) ──
+        # max_hold_days=10: kalau sudah 10 hari bursa & TP2 belum kena, otomatis
+        # dismiss di hari ke-11 (Apps Script yang eksekusi logic-nya).
+        if _updates:
+            try:
+                import requests as _requests_upd2
+                _resp_sp2 = _requests_upd2.post(
+                    "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                    json={"action": "bulk_update_tpsl", "sheet": "StockPick Log", "date": target, "updates": _updates, "max_hold_days": 10},
+                    timeout=15
+                )
+            except Exception:
+                pass
+
         bos_list  = scan_bos(all_ohlcv, avg_vols, target)
         boh_list  = scan_boh(all_ohlcv, avg_vols, target)
         div_list  = scan_divergen(all_ohlcv, avg_vols, target)
@@ -1497,6 +1556,8 @@ def main():
     c4.metric("🏢 Saham",  f"{len(data_today)} saham")
     if st.session_state.get("tpsl_last_result"):
         st.caption(st.session_state["tpsl_last_result"])
+    if st.session_state.get("sp_log_time_check"):
+        st.caption(f"📌 StockPick Log: {st.session_state['sp_log_time_check']}")
 
     # ── Summary chips ─────────────────────────────────────────────────────────
     cols = st.columns(5)
@@ -2462,151 +2523,168 @@ def main():
             st.error("File `miracle_cuan.html` tidak ditemukan di root repo. Upload file tersebut ke repo `screener_streamlit` (sejajar dengan app.py).")
 
         # ── Statistik & Win Rate (dari Google Sheet Dashboard + Trading Log) ──
-        st.divider()
-        st.subheader("📊 Statistik Trading Log")
-        _mc_webhook = "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec"
+        def render_trading_log_section(section_title, sheet_param, cache_key):
+            st.divider()
+            st.subheader(section_title)
+            _mc_webhook = "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec"
 
-        _colr1, _colr2 = st.columns([1,5])
-        if _colr1.button("🔄 Refresh"):
-            st.session_state.pop('mc_stats_cache', None)
+            _colr1, _colr2 = st.columns([1,5])
+            if _colr1.button("🔄 Refresh", key=f"refresh_{cache_key}"):
+                st.session_state.pop(cache_key, None)
 
-        if 'mc_stats_cache' not in st.session_state:
-            try:
-                import requests as _requests
-                _sresp = _requests.get(_mc_webhook, params={'action':'get_stats'}, timeout=15)
-                st.session_state['mc_stats_cache'] = _sresp.json() if _sresp.ok else {'status':'error','message':f'HTTP {_sresp.status_code}'}
-            except Exception as _e:
-                st.session_state['mc_stats_cache'] = {'status':'error','message':str(_e)}
+            if cache_key not in st.session_state:
+                try:
+                    import requests as _requests
+                    _sresp = _requests.get(_mc_webhook, params={'action':'get_stats','sheet':sheet_param}, timeout=15)
+                    st.session_state[cache_key] = _sresp.json() if _sresp.ok else {'status':'error','message':f'HTTP {_sresp.status_code}'}
+                except Exception as _e:
+                    st.session_state[cache_key] = {'status':'error','message':str(_e)}
 
-        _sd = st.session_state.get('mc_stats_cache', {})
-        if _sd.get('status') == 'ok':
-            stats = _sd.get('stats', {})
-            entries = _sd.get('entries', [])
+            _sd = st.session_state.get(cache_key, {})
+            if _sd.get('status') == 'ok':
+                stats = _sd.get('stats', {})
+                entries = _sd.get('entries', [])
 
-            def _stat_card(icon, label, value, bg, border, text):
-                return (
-                    f'<div style="background:{bg};border:1px solid {border};'
-                    f'border-radius:10px;padding:14px 16px;min-width:0">'
-                    f'<div style="font-size:11px;color:{text};opacity:0.75;text-transform:uppercase;letter-spacing:0.6px;'
-                    f'display:flex;align-items:center;gap:5px">{icon} {label}</div>'
-                    f'<div style="font-size:26px;font-weight:700;margin-top:6px;color:{text};line-height:1">{value}</div>'
-                    f'</div>'
-                )
-
-            row1 = ''.join([
-                _stat_card('📌', 'Total Entry', stats.get('Total Entry', '-'), '#F1F5F9', '#CBD5E1', '#334155'),
-                _stat_card('✅', 'TP1 Hit', stats.get('TP1 Hit', '-'), '#DCFCE7', '#86EFAC', '#166534'),
-                _stat_card('🎯', 'TP2 Hit', stats.get('TP2 Hit', '-'), '#BBF7D0', '#4ADE80', '#14532D'),
-                _stat_card('🛑', 'SL Hit', stats.get('SL Hit', '-'), '#FEE2E2', '#FCA5A5', '#991B1B'),
-                _stat_card('⏳', 'Running', stats.get('Running', '-'), '#FEF3C7', '#FCD34D', '#92400E'),
-            ])
-            row2 = ''.join([
-                _stat_card('🏆', 'Win Rate TP1', stats.get('Win Rate TP1', '-'), '#E0F2FE', '#7DD3FC', '#075985'),
-                _stat_card('🏆', 'Win Rate TP2', stats.get('Win Rate TP2', '-'), '#DBEAFE', '#93C5FD', '#1E3A8A'),
-                _stat_card('📅', 'Avg Hari TP1', stats.get('Avg Hari TP1', '-'), '#F3E8FF', '#D8B4FE', '#6B21A8'),
-                _stat_card('📅', 'Avg Hari TP2', stats.get('Avg Hari TP2', '-'), '#EDE9FE', '#C4B5FD', '#5B21B6'),
-            ])
-            st.html(
-                f'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">{row1}</div>'
-                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">{row2}</div>'
-            )
-
-            running_entries = [e for e in entries if e.get('status') in ('Running','Partial')]
-            _entry_badge_cache = {}
-            def _entry_badges(code, tanggal):
-                if tanggal not in _entry_badge_cache:
-                    _entry_badge_cache[tanggal] = get_pattern_badges_for_date(all_ohlcv, avg_vols, tanggal)
-                return render_entry_badges(_entry_badge_cache[tanggal].get(code, []))
-
-            if running_entries:
-                running_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
-                st.markdown(f"**{len(running_entries)} entry masih berjalan**")
-                _rows = []
-                for e in running_entries:
-                    chg_raw = str(e.get('chg_berjalan','') or '')
-                    chg_c = '#f87171' if chg_raw.startswith('-') else ('#4ade80' if chg_raw not in ('','0.00%') else '#888')
-                    tp1_hit = e.get('tp1_hit')
-                    tp2_hit = e.get('tp2_hit')
-                    hari_tp1 = e.get('hari_tp1')
-                    hari_berjalan = e.get('hari_berjalan')
-                    tp1_new = tp1_hit and str(hari_tp1) not in ('', 'None') and str(hari_tp1) == str(hari_berjalan)
-                    new_badge = '<span style="background:#fed7aa;color:#9a3412;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px">🆕 NEW</span>' if tp1_new else ''
-                    tp1_txt = f"{e.get('harga_tp1','')} {'✅' if tp1_hit else ''}"
-                    tp2_txt = f"{e.get('harga_tp2','')} {'✅' if tp2_hit else ''}"
-                    tp1_c = '#4ade80' if tp1_hit else '#888'
-                    tp2_c = '#4ade80' if tp2_hit else '#888'
-                    pola_badges = _entry_badges(e.get('code',''), e.get('tanggal',''))
-                    _rows.append(
-                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
-                        f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
-                        f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
-                        f'<td style="padding:6px 8px">{pola_badges}</td>'
-                        f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
-                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
-                        f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
-                        f'<td style="padding:6px 8px;font-size:12px;color:{tp1_c}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">{new_badge}<span>{tp1_txt}</span></div></td>'
-                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp2_c}">{tp2_txt}</td>'
-                        f'<td style="padding:6px 8px;text-align:center;font-size:11px">{e.get("status","")}</td>'
-                        '</tr>'
+                def _stat_card(icon, label, value, bg, border, text):
+                    return (
+                        f'<div style="background:{bg};border:1px solid {border};'
+                        f'border-radius:10px;padding:14px 16px;min-width:0">'
+                        f'<div style="font-size:11px;color:{text};opacity:0.75;text-transform:uppercase;letter-spacing:0.6px;'
+                        f'display:flex;align-items:center;gap:5px">{icon} {label}</div>'
+                        f'<div style="font-size:26px;font-weight:700;margin-top:6px;color:{text};line-height:1">{value}</div>'
+                        f'</div>'
                     )
-                _tbl = (
-                    '<table style="width:100%;border-collapse:collapse">'
-                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
-                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
-                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
-                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
-                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
-                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
-                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
-                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">TP1</th>'
-                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">TP2</th>'
-                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Status</th>'
-                    '</tr></thead><tbody>' + ''.join(_rows) + '</tbody></table>'
+
+                row1 = ''.join([
+                    _stat_card('📌', 'Total Entry', stats.get('Total Entry', '-'), '#F1F5F9', '#CBD5E1', '#334155'),
+                    _stat_card('✅', 'TP1 Hit', stats.get('TP1 Hit', '-'), '#DCFCE7', '#86EFAC', '#166534'),
+                    _stat_card('🎯', 'TP2 Hit', stats.get('TP2 Hit', '-'), '#BBF7D0', '#4ADE80', '#14532D'),
+                    _stat_card('🛑', 'SL Hit', stats.get('SL Hit', '-'), '#FEE2E2', '#FCA5A5', '#991B1B'),
+                    _stat_card('⏳', 'Running', stats.get('Running', '-'), '#FEF3C7', '#FCD34D', '#92400E'),
+                ])
+                row2 = ''.join([
+                    _stat_card('🏆', 'Win Rate TP1', stats.get('Win Rate TP1', '-'), '#E0F2FE', '#7DD3FC', '#075985'),
+                    _stat_card('🏆', 'Win Rate TP2', stats.get('Win Rate TP2', '-'), '#DBEAFE', '#93C5FD', '#1E3A8A'),
+                    _stat_card('📅', 'Avg Hari TP1', stats.get('Avg Hari TP1', '-'), '#F3E8FF', '#D8B4FE', '#6B21A8'),
+                    _stat_card('📅', 'Avg Hari TP2', stats.get('Avg Hari TP2', '-'), '#EDE9FE', '#C4B5FD', '#5B21B6'),
+                ])
+                st.html(
+                    f'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">{row1}</div>'
+                    f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">{row2}</div>'
                 )
-                st.html(_tbl)
+
+                running_entries = [e for e in entries if e.get('status') in ('Running','Partial')]
+                _entry_badge_cache = {}
+                def _entry_badges(code, tanggal):
+                    if tanggal not in _entry_badge_cache:
+                        _entry_badge_cache[tanggal] = get_pattern_badges_for_date(all_ohlcv, avg_vols, tanggal)
+                    return render_entry_badges(_entry_badge_cache[tanggal].get(code, []))
+
+                if running_entries:
+                    running_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
+                    st.markdown(f"**{len(running_entries)} entry masih berjalan**")
+                    _rows = []
+                    for e in running_entries:
+                        chg_raw = str(e.get('chg_berjalan','') or '')
+                        chg_c = '#f87171' if chg_raw.startswith('-') else ('#4ade80' if chg_raw not in ('','0.00%') else '#888')
+                        tp1_hit = e.get('tp1_hit')
+                        tp2_hit = e.get('tp2_hit')
+                        hari_tp1 = e.get('hari_tp1')
+                        hari_berjalan = e.get('hari_berjalan')
+                        tp1_new = tp1_hit and str(hari_tp1) not in ('', 'None') and str(hari_tp1) == str(hari_berjalan)
+                        new_badge = '<span style="background:#fed7aa;color:#9a3412;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px">🆕 NEW</span>' if tp1_new else ''
+                        tp1_txt = f"{e.get('harga_tp1','')} {'✅' if tp1_hit else ''}"
+                        tp2_txt = f"{e.get('harga_tp2','')} {'✅' if tp2_hit else ''}"
+                        tp1_c = '#4ade80' if tp1_hit else '#888'
+                        tp2_c = '#4ade80' if tp2_hit else '#888'
+                        pola_badges = _entry_badges(e.get('code',''), e.get('tanggal',''))
+                        _rows.append(
+                            '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                            f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
+                            f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
+                            f'<td style="padding:6px 8px">{pola_badges}</td>'
+                            f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
+                            f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
+                            f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
+                            f'<td style="padding:6px 8px;font-size:12px;color:{tp1_c}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">{new_badge}<span>{tp1_txt}</span></div></td>'
+                            f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{tp2_c}">{tp2_txt}</td>'
+                            f'<td style="padding:6px 8px;text-align:center;font-size:11px">{e.get("status","")}</td>'
+                            '</tr>'
+                        )
+                    _tbl = (
+                        '<table style="width:100%;border-collapse:collapse">'
+                        '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
+                        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
+                        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
+                        '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
+                        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">TP1</th>'
+                        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">TP2</th>'
+                        '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Status</th>'
+                        '</tr></thead><tbody>' + ''.join(_rows) + '</tbody></table>'
+                    )
+                    st.html(_tbl)
+                else:
+                    st.caption("Tidak ada entry yang sedang berjalan.")
+
+                # ── Entry yang sudah closed (TP2 Hit / SL Hit) ──
+                closed_entries = [e for e in entries if e.get('status') in ('TP2 Hit','SL Hit','Dismissed')]
+                if closed_entries:
+                    closed_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
+                    st.markdown(f"**{len(closed_entries)} entry sudah match (closed)**")
+                    _rows2 = []
+                    for e in closed_entries:
+                        is_tp2 = e.get('status') == 'TP2 Hit'
+                        is_sl = e.get('status') == 'SL Hit'
+                        is_dismissed = e.get('status') == 'Dismissed'
+                        if is_tp2:
+                            result_label = '✅ TP2 Hit'; result_color = '#4ade80'
+                            gain_raw = str(e.get('tp2_pct',''))
+                            gain_display = gain_raw
+                            hari_final = e.get('hari_tp2','')
+                        elif is_sl:
+                            result_label = '🔴 SL Hit'; result_color = '#f87171'
+                            gain_raw = str(e.get('sl_pct',''))
+                            gain_display = ('-' + gain_raw if gain_raw and not gain_raw.startswith('-') else gain_raw)
+                            hari_final = e.get('hari_sl','')
+                        else:  # Dismissed — batas waktu 10 hari lewat, TP2 belum kena
+                            result_label = '⏹️ Dismiss'; result_color = '#94a3b8'
+                            gain_display = e.get('catatan','') or '-'
+                            hari_final = e.get('hari_berjalan','')
+                        pola_badges2 = _entry_badges(e.get('code',''), e.get('tanggal',''))
+                        _rows2.append(
+                            '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                            f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
+                            f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
+                            f'<td style="padding:6px 8px">{pola_badges2}</td>'
+                            f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
+                            f'<td style="padding:6px 8px;text-align:right;font-size:11px;color:{result_color};font-weight:600">{gain_display}</td>'
+                            f'<td style="padding:6px 8px;text-align:center;font-size:12px">{hari_final}</td>'
+                            f'<td style="padding:6px 8px;text-align:center;font-size:11px;color:{result_color}">{result_label}</td>'
+                            '</tr>'
+                        )
+                    _tbl2 = (
+                        '<table style="width:100%;border-collapse:collapse">'
+                        '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
+                        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
+                        '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Gain%</th>'
+                        '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
+                        '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Result</th>'
+                        '</tr></thead><tbody>' + ''.join(_rows2) + '</tbody></table>'
+                    )
+                    st.html(_tbl2)
             else:
-                st.caption("Tidak ada entry yang sedang berjalan.")
+                st.caption(f"⚠️ Gagal ambil statistik: {_sd.get('message','unknown error')}")
 
-            # ── Entry yang sudah closed (TP2 Hit / SL Hit) ──
-            closed_entries = [e for e in entries if e.get('status') in ('TP2 Hit','SL Hit')]
-            if closed_entries:
-                closed_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
-                st.markdown(f"**{len(closed_entries)} entry sudah match (closed)**")
-                _rows2 = []
-                for e in closed_entries:
-                    is_tp2 = e.get('status') == 'TP2 Hit'
-                    result_label = '✅ TP2 Hit' if is_tp2 else '🔴 SL Hit'
-                    result_color = '#4ade80' if is_tp2 else '#f87171'
-                    gain_raw = str(e.get('tp2_pct','') if is_tp2 else e.get('sl_pct',''))
-                    gain_display = gain_raw if is_tp2 else ('-' + gain_raw if gain_raw and not gain_raw.startswith('-') else gain_raw)
-                    hari_final = e.get('hari_tp2','') if is_tp2 else e.get('hari_sl','')
-                    pola_badges2 = _entry_badges(e.get('code',''), e.get('tanggal',''))
-                    _rows2.append(
-                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
-                        f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
-                        f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
-                        f'<td style="padding:6px 8px">{pola_badges2}</td>'
-                        f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
-                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{result_color};font-weight:600">{gain_display}</td>'
-                        f'<td style="padding:6px 8px;text-align:center;font-size:12px">{hari_final}</td>'
-                        f'<td style="padding:6px 8px;text-align:center;font-size:11px;color:{result_color}">{result_label}</td>'
-                        '</tr>'
-                    )
-                _tbl2 = (
-                    '<table style="width:100%;border-collapse:collapse">'
-                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
-                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
-                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
-                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
-                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
-                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Gain%</th>'
-                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
-                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Result</th>'
-                    '</tr></thead><tbody>' + ''.join(_rows2) + '</tbody></table>'
-                )
-                st.html(_tbl2)
-        else:
-            st.caption(f"⚠️ Gagal ambil statistik: {_sd.get('message','unknown error')}")
+        render_trading_log_section("📊 Statistik Trading Log", "Trading Log", "mc_stats_cache")
+        render_trading_log_section("📊 Statistik StockPick Log (Otomatis)", "StockPick Log", "sp_stats_cache")
+        if st.session_state.get("sp_log_last_result"):
+            st.caption(st.session_state["sp_log_last_result"])
 
     # Tab Cari Saham — kebalikan dari tab lain: cari 1 kode, lihat pola apa saja yang lolos
     with tabs[15]:
