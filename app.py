@@ -1837,21 +1837,47 @@ def main():
     with tabs[5]:
         lst = [r for r in sv_list if r['in_wl']] if show_only_wl else sv_list
         st.markdown(f"**Spike Valuasi Rp800Jt-5M | WL: {len([r for r in sv_list if r['in_wl']])} | Total: {len(sv_list)}**")
+        only_lowv = st.checkbox("🔵 Hanya tampilkan LowV", key='sv_only_lowv')
+        if only_lowv:
+            lst = [r for r in lst if r.get('low_v')]
         if lst:
-            rows=[{'★':('★' if r['in_wl'] else ''),'Code':r['code'],'Close':r['close'],
-                'Chg%':r['chg'],'Vol':r['vol'],'Jml Spk':r['n'],
-                'Best':f"{r['best']['date']}+{r['best']['hvp']:.0f}%(Rp{r['best']['val_b']:.2f}M)",
-                'mc15%':r['max_chg15'],
-                'Candle':('+'.join(x for x in ['OL' if r['ol'] else '','Doji' if r['doji'] else '','CAvg' if r['cavg'] else ''] if x) or '-'),
-                'LowV':('🔵 LowV' if r.get('low_v') else '')
-                } for r in lst]
-            df=pd.DataFrame(rows)
-            st.dataframe(df.style
-                .map(lambda v:'color:#4ade80;font-weight:bold' if isinstance(v,float) and v>0
-                          else ('color:#f87171;font-weight:bold' if isinstance(v,float) and v<0 else ''),
-                          subset=['Chg%'])
-                .format({'Chg%':'{:+.2f}','Vol':'{:.2f}','mc15%':'{:+.1f}'}),
-                use_container_width=True, height=520)
+            sv_rows_html = []
+            for r in lst:
+                cc = '#4ade80' if r['chg'] > 0 else ('#f87171' if r['chg'] < 0 else '#EF9F27')
+                sc = '+' if r['chg'] > 0 else ''
+                candle = '+'.join(x for x in ['OL' if r['ol'] else '','Doji' if r['doji'] else '','CAvg' if r['cavg'] else ''] if x) or '-'
+                lowv_badge = '<span style="background:#DBEAFE;color:#1E3A8A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">🔵 LowV</span>' if r.get('low_v') else ''
+                best_txt = f"{r['best']['date']}+{r['best']['hvp']:.0f}%(Rp{r['best']['val_b']:.2f}M)"
+                sv_rows_html.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                    '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
+                    '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(r['chg']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px">' + f"{r['vol']:.2f}" + '</td>'
+                    '<td style="padding:7px 10px;text-align:center;font-size:12px">' + str(r['n']) + '</td>'
+                    '<td style="padding:7px 10px;font-size:11px;color:#888">' + best_txt + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px">' + f"{r['max_chg15']:+.1f}%" + '</td>'
+                    '<td style="padding:7px 10px;text-align:center;font-size:11px">' + candle + '</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + lowv_badge + '</td>'
+                    '</tr>'
+                )
+            sv_tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                '<th style="padding:7px 10px;color:#666;font-weight:400;font-size:11px;width:24px">★</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Jml Spk</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Best</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">mc15%</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Candle</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">LowV</th>'
+                '</tr></thead><tbody>' + ''.join(sv_rows_html) + '</tbody></table>'
+            )
+            st.html(sv_tbl_html)
         else: st.info("Tidak ada SV saat ini.")
 
     # Tab Alert
