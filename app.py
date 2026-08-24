@@ -735,6 +735,65 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
     return results[:75]
 
 
+def scan_ara(all_ohlcv, avg_vols, target, chg_min=16.0, chg_max=30.0, lookback_days=25):
+    """Deteksi saham yang pernah naik besar (16-30%, mirip ARA) dalam lookback_days
+    terakhir, lalu pantau apakah harga sudah retrace ke area 1/3 bawah dari kenaikan
+    itu — dihitung dari Prev Close (sebelum naik) sampai High tertinggi yang pernah
+    dicapai setelahnya. Alert kalau Low hari ini sudah menyentuh/menembus level itu."""
+    results = []
+    for code, bars in all_ohlcv.items():
+        if not bars or bars[-1]['date'] != target: continue
+        in_wl = code in ALL_WL
+        n = len(bars)
+        window = bars[-lookback_days:] if n >= lookback_days else bars
+        if len(window) < 2: continue
+
+        # Cari hari ARA PALING BARU dalam window (Chg% 16-30%)
+        ara_idx = None
+        for i, b in enumerate(window):
+            if not b.get('P') or b['P'] <= 0: continue
+            chg = (b['C'] - b['P']) / b['P'] * 100
+            if chg_min <= chg <= chg_max:
+                ara_idx = i  # ambil yang paling akhir kalau ada beberapa
+        if ara_idx is None: continue
+
+        ara_bar = window[ara_idx]
+        prev_close = ara_bar['P']
+        ara_chg = (ara_bar['C'] - prev_close) / prev_close * 100
+
+        # Peak High tertinggi SEJAK hari ARA (termasuk hari ARA itu sendiri) sampai target
+        after_ara = window[ara_idx:]
+        peak_high = max((b['H'] for b in after_ara if b.get('H')), default=ara_bar.get('H', ara_bar['C']))
+        if peak_high <= prev_close: continue
+
+        range_total = peak_high - prev_close
+        lower_third = prev_close + range_total / 3
+
+        today = window[-1]
+        chg0 = (today['C']-today['P'])/today['P']*100 if today.get('P') and today['P']>0 else 0
+        days_since_ara = len(window) - 1 - ara_idx
+        # Cek apakah hari-hari SETELAH ARA (bukan hari ARA itu sendiri, karena Low di
+        # hari itu wajar rendah — harga sebelum naik) sudah pernah nyentuh 1/3 bawah.
+        first_touch_idx = None
+        for j in range(ara_idx + 1, len(window)):
+            bj = window[j]
+            if bj.get('L') is not None and bj['L'] <= lower_third:
+                first_touch_idx = j
+                break
+        is_new_alert = (first_touch_idx is not None and first_touch_idx == len(window) - 1)
+        already_alerted = first_touch_idx is not None
+
+        results.append({
+            'code': code, 'in_wl': in_wl, 'close': int(today['C']), 'chg': round(chg0,2),
+            'ara_date': ara_bar['date'][5:], 'ara_chg': round(ara_chg,1),
+            'prev_close': int(prev_close), 'peak_high': int(peak_high),
+            'lower_third': int(round(lower_third)), 'days_since_ara': days_since_ara,
+            'alerted': already_alerted, 'is_new_alert': is_new_alert,
+        })
+    results.sort(key=lambda x: (-int(x['is_new_alert']), -int(x['alerted']), -int(x['in_wl']), x['days_since_ara']))
+    return results
+
+
 def scan_boh(all_ohlcv, avg_vols, target, min_trigger=20.0, min_gap=5.0, max_days=10):
     results = []
     for code, bars in all_ohlcv.items():
@@ -1482,6 +1541,7 @@ def main():
             _sp_cache['boh_list']  = scan_boh(all_ohlcv, avg_vols, target)
             _sp_cache['div_list']  = scan_divergen(all_ohlcv, avg_vols, target)
             _sp_cache['ttx_list']  = scan_ttx(all_ohlcv, avg_vols, target)
+            _sp_cache['ara_list']  = scan_ara(all_ohlcv, avg_vols, target)
             _sp_cache['auto_sp']   = auto_stockpick(_sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['p1_list'],
                                     _sp_cache['p3_list'], _sp_cache['ol_list'], _sp_cache['sv_list'], _sp_cache['alert_list'],
                                     _sp_cache['sp_list'], _sp_cache['bos_list'], _sp_cache['boh_list'], _sp_cache['ttx_list'],
@@ -1496,6 +1556,7 @@ def main():
         sp_list    = _sp_cache['sp_list'];    bos_list = _sp_cache['bos_list']
         boh_list   = _sp_cache['boh_list'];   div_list = _sp_cache['div_list']
         ttx_list   = _sp_cache['ttx_list'];   auto_sp  = _sp_cache['auto_sp']
+        ara_list   = _sp_cache['ara_list']
 
         # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
         # Trading Log ke-2: otomatis, tanpa perlu klik Simpan manual di kalkulator.
@@ -1731,7 +1792,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan","🔍 Cari Saham"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan","🔍 Cari Saham","🔺 ARA"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -2857,6 +2918,59 @@ def main():
                     st.caption(f"Total {len(matches)} pola lolos untuk {search_code} hari ini.")
                 else:
                     st.info(f"{search_code} tidak lolos pola manapun hari ini.")
+
+    # Tab ARA — pantau saham yang pernah naik besar (16-30%), alert kalau harga
+    # retrace ke area sepertiga bawah dari kenaikan itu.
+    with tabs[16]:
+        lst = [r for r in ara_list if r['in_wl']] if show_only_wl else ara_list
+        st.markdown(f"**🔺 ARA Watch — Naik 16-30%, Alert kalau Retrace ke 1/3 Bawah | WL: {len([r for r in ara_list if r['in_wl']])} | Total: {len(ara_list)}**")
+        st.caption("1/3 bawah dihitung dari Prev Close (sebelum naik) sampai High tertinggi yang pernah dicapai setelahnya. Look-back 25 hari terakhir.")
+        if lst:
+            n_new_alert = len([r for r in lst if r['is_new_alert']])
+            if n_new_alert > 0:
+                st.warning(f"🚨 {n_new_alert} saham BARU SAJA menyentuh area 1/3 bawah hari ini!")
+            ara_rows_html = []
+            for r in lst:
+                cc = '#4ade80' if r['chg'] > 0 else ('#f87171' if r['chg'] < 0 else '#EF9F27')
+                sc = '+' if r['chg'] > 0 else ''
+                if r['is_new_alert']:
+                    status_badge = '<span style="background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">🚨 ALERT BARU</span>'
+                elif r['alerted']:
+                    status_badge = '<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">⚠️ Sudah di 1/3</span>'
+                else:
+                    status_badge = '<span style="background:#F1F5F9;color:#334155;font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap">⏳ Belum</span>'
+                ara_rows_html.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                    '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
+                    '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(r['chg']) + '%</td>'
+                    '<td style="padding:7px 10px;font-size:11px;color:#888">' + r['ara_date'] + ' (+' + str(r['ara_chg']) + '%)</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px">' + str(r['prev_close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px">' + str(r['peak_high']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:600">' + str(r['lower_third']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:center;font-size:12px">' + str(r['days_since_ara']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + status_badge + '</td>'
+                    '</tr>'
+                )
+            ara_tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                '<th style="padding:7px 10px;color:#666;font-weight:400;font-size:11px;width:24px">★</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Tgl ARA</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Prev Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Peak High</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">1/3 Bawah</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Hari</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Status</th>'
+                '</tr></thead><tbody>' + ''.join(ara_rows_html) + '</tbody></table>'
+            )
+            st.html(ara_tbl_html)
+        else:
+            st.info("Tidak ada saham dengan pola ARA dalam 25 hari terakhir.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
