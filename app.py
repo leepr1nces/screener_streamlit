@@ -2574,11 +2574,22 @@ def main():
                 )
 
                 running_entries = [e for e in entries if e.get('status') in ('Running','Partial')]
-                _entry_badge_cache = {}
+                # Cache badge Pola disimpan di session_state (bukan dict lokal) supaya
+                # PERSISTEN antar Streamlit rerun — tiap klik tab/widget apapun bikin
+                # seluruh script main() jalan ulang dari atas, jadi tanpa ini badge
+                # dihitung ulang dari nol (11 scan x tiap tanggal unik) tiap kali,
+                # bahkan pas cuma pindah ke tab lain yang tidak terkait.
+                _entry_badge_cache = st.session_state.setdefault('_pattern_badge_cache_global', {})
                 def _entry_badges(code, tanggal):
-                    if tanggal not in _entry_badge_cache:
-                        _entry_badge_cache[tanggal] = get_pattern_badges_for_date(all_ohlcv, avg_vols, tanggal)
-                    return render_entry_badges(_entry_badge_cache[tanggal].get(code, []))
+                    if tanggal == target:
+                        # Data hari ini masih bisa berubah kalau ada upload baru lagi
+                        # (intraday berikutnya) — jangan di-cache, selalu hitung ulang.
+                        result = get_pattern_badges_for_date(all_ohlcv, avg_vols, tanggal)
+                    else:
+                        if tanggal not in _entry_badge_cache:
+                            _entry_badge_cache[tanggal] = get_pattern_badges_for_date(all_ohlcv, avg_vols, tanggal)
+                        result = _entry_badge_cache[tanggal]
+                    return render_entry_badges(result.get(code, []))
 
                 if running_entries:
                     running_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
