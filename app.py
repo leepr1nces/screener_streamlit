@@ -2428,8 +2428,17 @@ def main():
                 st.info("Tidak ada saham yang capai target dalam periode ini.")
         st.divider()
 
-        with st.spinner("Menghitung resume semua pola..."):
-            tr_summary = build_trackrecord_summary(all_ohlcv, all_dates, max_hold=5)
+        # Cache berdasarkan "tanda tangan" data (jumlah tanggal + tanggal terakhir +
+        # jumlah kode) — bukan isi data_ohlcv langsung (terlalu besar buat di-hash tiap
+        # kali). Interaksi apapun di tab ini (pilih pola, pilih saham buat chart, dst)
+        # bikin Streamlit rerun seluruh script; tanpa cache ini, seluruh backtest
+        # 7 pola x semua tanggal historis dihitung ulang dari nol tiap kali.
+        _tr_sig = (len(all_dates), max(all_dates) if all_dates else None, len(all_ohlcv))
+        if st.session_state.get('_tr_summary_sig') != _tr_sig:
+            with st.spinner("Menghitung resume semua pola..."):
+                st.session_state['_tr_summary_cache'] = build_trackrecord_summary(all_ohlcv, all_dates, max_hold=5)
+                st.session_state['_tr_summary_sig'] = _tr_sig
+        tr_summary = st.session_state['_tr_summary_cache']
 
         st.markdown("**📊 Resume Semua Pola**")
         st.dataframe(pd.DataFrame(tr_summary), use_container_width=True, hide_index=True)
@@ -2438,8 +2447,12 @@ def main():
         pattern_options = list(PATTERN_TRACKRECORD_CONFIG.keys())
         pattern_sel = st.selectbox("🔍 Lihat detail pola:", pattern_options, index=0, key='tr_pattern_select')
 
-        with st.spinner(f"Menghitung detail track record {pattern_sel}..."):
-            tr_records = build_trackrecord(all_ohlcv, all_dates, max_hold=5, pattern=pattern_sel)
+        _tr_detail_key = (pattern_sel, _tr_sig)
+        if st.session_state.get('_tr_detail_key') != _tr_detail_key:
+            with st.spinner(f"Menghitung detail track record {pattern_sel}..."):
+                st.session_state['_tr_detail_cache'] = build_trackrecord(all_ohlcv, all_dates, max_hold=5, pattern=pattern_sel)
+                st.session_state['_tr_detail_key'] = _tr_detail_key
+        tr_records = st.session_state['_tr_detail_cache']
 
         if tr_records:
             df_tr = pd.DataFrame(tr_records)
