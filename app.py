@@ -1460,15 +1460,42 @@ def main():
         delta = 3 if dt.weekday()==4 else 1
         next_date = (dt+timedelta(days=delta)).strftime('%Y-%m-%d')
 
-        boa_full, boa_near = scan_boa(all_ohlcv, avg_vols, target)
-        p1_list   = scan_p1(all_ohlcv, avg_vols, target)
-        p3_list   = scan_p3(all_ohlcv, avg_vols, target)
-        ol_list   = scan_ol_seq(all_ohlcv, avg_vols, target)
-        sv_list   = scan_sv(all_ohlcv, avg_vols, target)
-        alert_list= scan_alert(all_ohlcv, avg_vols, target)
-        clean     = scan_bersih(all_ohlcv, avg_vols, target,
-                                p1_list, p3_list, boa_full, boa_near, sv_list)
-        sp_list = scan_stockpick(all_ohlcv, avg_vols, target)
+        # ── Cache seluruh pipeline scan pola berdasarkan "tanda tangan" data ──
+        # Streamlit rerun SELURUH script tiap ada interaksi apapun (klik tab, ketik
+        # di search box, dst). Tanpa cache ini, ke-11 scan pola dihitung ulang dari
+        # nol tiap kali — bahkan cuma buka tab "Cari Saham" yang sebenarnya cuma
+        # butuh lookup dari hasil yang SUDAH dihitung. Cache hanya recompute kalau
+        # data screener beneran berubah (upload baru).
+        _scan_sig = (len(all_dates), target, len(all_ohlcv))
+        if st.session_state.get('_scan_pipeline_sig') != _scan_sig:
+            _sp_cache = {}
+            _sp_cache['boa_full'], _sp_cache['boa_near'] = scan_boa(all_ohlcv, avg_vols, target)
+            _sp_cache['p1_list']   = scan_p1(all_ohlcv, avg_vols, target)
+            _sp_cache['p3_list']   = scan_p3(all_ohlcv, avg_vols, target)
+            _sp_cache['ol_list']   = scan_ol_seq(all_ohlcv, avg_vols, target)
+            _sp_cache['sv_list']   = scan_sv(all_ohlcv, avg_vols, target)
+            _sp_cache['alert_list']= scan_alert(all_ohlcv, avg_vols, target)
+            _sp_cache['clean']     = scan_bersih(all_ohlcv, avg_vols, target,
+                                    _sp_cache['p1_list'], _sp_cache['p3_list'], _sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['sv_list'])
+            _sp_cache['sp_list']   = scan_stockpick(all_ohlcv, avg_vols, target)
+            _sp_cache['bos_list']  = scan_bos(all_ohlcv, avg_vols, target)
+            _sp_cache['boh_list']  = scan_boh(all_ohlcv, avg_vols, target)
+            _sp_cache['div_list']  = scan_divergen(all_ohlcv, avg_vols, target)
+            _sp_cache['ttx_list']  = scan_ttx(all_ohlcv, avg_vols, target)
+            _sp_cache['auto_sp']   = auto_stockpick(_sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['p1_list'],
+                                    _sp_cache['p3_list'], _sp_cache['ol_list'], _sp_cache['sv_list'], _sp_cache['alert_list'],
+                                    _sp_cache['sp_list'], _sp_cache['bos_list'], _sp_cache['boh_list'], _sp_cache['ttx_list'],
+                                    all_ohlcv, target, _sp_cache['div_list'])
+            st.session_state['_scan_pipeline_cache'] = _sp_cache
+            st.session_state['_scan_pipeline_sig'] = _scan_sig
+        _sp_cache = st.session_state['_scan_pipeline_cache']
+        boa_full   = _sp_cache['boa_full'];   boa_near = _sp_cache['boa_near']
+        p1_list    = _sp_cache['p1_list'];    p3_list  = _sp_cache['p3_list']
+        ol_list    = _sp_cache['ol_list'];    sv_list  = _sp_cache['sv_list']
+        alert_list = _sp_cache['alert_list']; clean    = _sp_cache['clean']
+        sp_list    = _sp_cache['sp_list'];    bos_list = _sp_cache['bos_list']
+        boh_list   = _sp_cache['boh_list'];   div_list = _sp_cache['div_list']
+        ttx_list   = _sp_cache['ttx_list'];   auto_sp  = _sp_cache['auto_sp']
 
         # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
         # Trading Log ke-2: otomatis, tanpa perlu klik Simpan manual di kalkulator.
@@ -1526,12 +1553,6 @@ def main():
                 )
             except Exception:
                 pass
-
-        bos_list  = scan_bos(all_ohlcv, avg_vols, target)
-        boh_list  = scan_boh(all_ohlcv, avg_vols, target)
-        div_list  = scan_divergen(all_ohlcv, avg_vols, target)
-        ttx_list  = scan_ttx(all_ohlcv, avg_vols, target)
-        auto_sp   = auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert_list, sp_list, bos_list, boh_list, ttx_list, all_ohlcv, target, div_list)
 
         # ── Build data OHLCV untuk Miracle Cuan (embed langsung, bukan URL luar) ──
         try:
