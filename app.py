@@ -372,10 +372,14 @@ def scan_sv(all_ohlcv, avg_vols, target):
         if b0.get('A') and b0['C']<b0['A']: sc+=8
         if in_wl: sc+=30
         chg0=pct(b0['C'],b0['P']) if b0.get('P') and b0['P']>0 else 0
+        prev4_vols=[b['V'] for b in bars[-5:-1] if b.get('V',0)>0]
+        low_v = (b0.get('V',0) < np.mean(prev4_vols)*0.7) if prev4_vols else False
+        if low_v: sc+=15
         results.append({'code':code,'in_wl':in_wl,'close':int(b0['C']),'chg':round(chg0,2),
             'vol':round(vr0,2),'score':round(sc,1),'n':len(spikes_val),
             'best':best,'spikes':spikes_val[:3],'max_chg15':round(max_chg15,2),
-            'ol':is_ol(b0),'doji':is_doji(b0),'cavg':bool(b0.get('A') and b0['C']<b0['A'])})
+            'ol':is_ol(b0),'doji':is_doji(b0),'cavg':bool(b0.get('A') and b0['C']<b0['A']),
+            'low_v':low_v})
     results.sort(key=lambda x: (-int(x['in_wl']), -x.get('chg',0), -x.get('hvp',0)))
     return results
 
@@ -1838,7 +1842,8 @@ def main():
                 'Chg%':r['chg'],'Vol':r['vol'],'Jml Spk':r['n'],
                 'Best':f"{r['best']['date']}+{r['best']['hvp']:.0f}%(Rp{r['best']['val_b']:.2f}M)",
                 'mc15%':r['max_chg15'],
-                'Candle':('+'.join(x for x in ['OL' if r['ol'] else '','Doji' if r['doji'] else '','CAvg' if r['cavg'] else ''] if x) or '-')
+                'Candle':('+'.join(x for x in ['OL' if r['ol'] else '','Doji' if r['doji'] else '','CAvg' if r['cavg'] else ''] if x) or '-'),
+                'LowV':('🔵 LowV' if r.get('low_v') else '')
                 } for r in lst]
             df=pd.DataFrame(rows)
             st.dataframe(df.style
