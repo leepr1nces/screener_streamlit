@@ -1023,36 +1023,6 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
 # ══════════════════════════════════════════════════════════════════════════════
 # CANDLESTICK CHART
 # ══════════════════════════════════════════════════════════════════════════════
-def fetch_yahoo_quick(code, period='2mo'):
-    """Ambil data harga dari Yahoo Finance untuk 1 kode saham — BERDIRI SENDIRI,
-    sama sekali tidak menyentuh all_ohlcv, scan pipeline, atau StockPick Log/
-    Trading Log. Cuma dipakai buat tab 'Cek Cepat' (mis. lagi di jalan, belum
-    sempat upload data screener). Return list of bars, atau None kalau gagal."""
-    try:
-        import yfinance as yf
-        ticker = code.strip().upper() + '.JK'
-        df = yf.download(ticker, period=period, interval='1d', progress=False, auto_adjust=False)
-        if df is None or df.empty:
-            return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        bars = []
-        for idx, row in df.iterrows():
-            c = safe_float(row.get('Close'))
-            if c is None: continue
-            bars.append({
-                'date': idx.strftime('%Y-%m-%d'),
-                'O': safe_float(row.get('Open')), 'H': safe_float(row.get('High')),
-                'L': safe_float(row.get('Low')), 'C': c,
-                'V': float(row.get('Volume') or 0), 'P': None,
-            })
-        for i in range(1, len(bars)):
-            bars[i]['P'] = bars[i-1]['C']
-        return bars if len(bars) >= 2 else None
-    except Exception:
-        return None
-
-
 def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart'):
     """Chart candlestick+volume yang CEPAT — semua data OHLCV untuk 'codes' di-embed
     langsung sebagai JS (sama seperti kalkulator Miracle Cuan), jadi ganti pilihan
@@ -1946,7 +1916,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan","🔍 Cari Saham","🔺 ARA","📡 Cek Cepat"]
+    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan","🔍 Cari Saham","🔺 ARA"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -3121,44 +3091,6 @@ def main():
             st.html(ara_tbl_html)
         else:
             st.info("Tidak ada saham dengan pola ARA dalam 25 hari terakhir.")
-
-    # Tab Cek Cepat (Yahoo Finance) — BERDIRI SENDIRI, tidak menyentuh scan
-    # pipeline / StockPick Log / Trading Log sama sekali. Buat kondisi lagi
-    # mobile/di jalan, belum sempat upload data screener RTI.
-    with tabs[17]:
-        st.markdown("### 📡 Cek Cepat (Yahoo Finance)")
-        st.warning(
-            "⚠️ Fitur terpisah — data dari **Yahoo Finance** (delay ~15 menit, "
-            "bukan harga real-time bursa). TIDAK dipakai untuk scan pola, StockPick Log, "
-            "atau Trading Log manapun. Murni buat cek cepat harga pas lagi mobile."
-        )
-        yq_code = st.text_input("Kode saham:", value="", placeholder="Contoh: CENT", key="yahoo_quick_code").strip().upper()
-
-        if yq_code:
-            yq_cache_key = f"yahoo_quick_{yq_code}"
-            col_yq1, col_yq2 = st.columns([1,5])
-            if col_yq1.button("🔄 Refresh", key="yahoo_quick_refresh"):
-                st.session_state.pop(yq_cache_key, None)
-            if yq_cache_key not in st.session_state:
-                with st.spinner(f"Mengambil data {yq_code} dari Yahoo Finance..."):
-                    st.session_state[yq_cache_key] = fetch_yahoo_quick(yq_code)
-
-            yq_bars = st.session_state.get(yq_cache_key)
-            if not yq_bars:
-                st.error(f"Data untuk **{yq_code}** tidak ditemukan di Yahoo Finance. Cek lagi kode sahamnya, atau saham ini mungkin tidak tercover Yahoo.")
-            else:
-                last = yq_bars[-1]
-                chg = (last['C']-last['P'])/last['P']*100 if last.get('P') and last['P']>0 else 0
-                in_wl_yq = yq_code in ALL_WL
-                c1, c2 = st.columns([1,2])
-                with c1:
-                    st.metric(f"{'★ ' if in_wl_yq else ''}{yq_code}", f"{int(last['C'])}", f"{chg:+.2f}%")
-                    st.caption(f"Update terakhir: {last['date']} (Yahoo, delay ~15 menit)")
-                with c2:
-                    yq_ohlcv = {yq_code: yq_bars}
-                    render_fast_chart([yq_code], yq_ohlcv, n_days=30, key='yahooquick')
-        else:
-            st.caption("Masukkan kode saham di atas untuk cek harga cepat via Yahoo Finance.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
