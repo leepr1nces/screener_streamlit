@@ -1023,6 +1023,114 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
 # ══════════════════════════════════════════════════════════════════════════════
 # CANDLESTICK CHART
 # ══════════════════════════════════════════════════════════════════════════════
+def render_fast_chart(codes, all_ohlcv, n_days=30, height=290, key='fastchart'):
+    """Chart candlestick+volume yang CEPAT — semua data OHLCV untuk 'codes' di-embed
+    langsung sebagai JS (sama seperti kalkulator Miracle Cuan), jadi ganti pilihan
+    saham di dropdown-nya nggak perlu Streamlit rerun sama sekali (instan, murni
+    client-side). Dipakai buat gantiin render_candlestick() (Plotly) di tab yang
+    seringkali ganti-ganti saham buat lihat chart (AutoSP, TrackRecord, dst)."""
+    parts = []
+    for code in codes:
+        bars = (all_ohlcv.get(code) or [])[-n_days:]
+        if len(bars) < 3: continue
+        bar_str = '|'.join([
+            f"{b['date'][5:]}:{int(b.get('O') or b.get('C',0))}:{int(b.get('H',0))}:{int(b.get('L') or b.get('C',0))}:{int(b.get('C',0))}:{int(b.get('V',0))}"
+            for b in bars if b.get('C')
+        ])
+        if bar_str:
+            parts.append(f"{code}~{bar_str}")
+    if not parts:
+        st.info("Tidak ada data chart untuk saham-saham ini.")
+        return
+    ohlcv_payload = ';'.join(parts)
+    codes_with_data = [p.split('~')[0] for p in parts]
+    options_html = ''.join([f'<option value="{c}">{c}</option>' for c in codes_with_data])
+
+    html = f"""
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:10px;border-radius:8px;max-width:400px;margin:0 auto">
+  <select id="fc-sel-{key}" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:6px 10px;font-size:13px;margin-bottom:8px">
+    {options_html}
+  </select>
+  <div id="fc-lbl-{key}" style="font-size:12px;color:#94a3b8;margin-bottom:4px"></div>
+  <canvas id="fc-price-{key}" style="width:100%;display:block"></canvas>
+  <canvas id="fc-vol-{key}" style="width:100%;display:block;margin-top:4px"></canvas>
+</div>
+<script>
+(function(){{
+  const ALL_BARS_{key} = {{}};
+  "{ohlcv_payload}".split(';').forEach(chunk => {{
+    const [code, barsStr] = chunk.split('~');
+    if (!code || !barsStr) return;
+    ALL_BARS_{key}[code] = barsStr.split('|').map(b => {{
+      const [d,o,h,l,c,v] = b.split(':');
+      return {{d, o:+o, h:+h, l:+l, c:+c, v:+v}};
+    }});
+  }});
+
+  function drawChart_{key}(code) {{
+    const bars = ALL_BARS_{key}[code];
+    const cvP = document.getElementById('fc-price-{key}');
+    const cvV = document.getElementById('fc-vol-{key}');
+    const lbl = document.getElementById('fc-lbl-{key}');
+    if (!bars || bars.length < 3) {{ lbl.textContent = code + ' — data tidak cukup'; return; }}
+    lbl.textContent = '📊 ' + code + ' — ' + bars.length + 'H';
+    const W = Math.min(380, cvP.parentElement.getBoundingClientRect().width - 20);
+    const HP = {max(100, height-140)}, HV = 60, PAD = 6;
+    cvP.width = W; cvP.height = HP; cvV.width = W; cvV.height = HV;
+    const ctx = cvP.getContext('2d'), vctx = cvV.getContext('2d');
+    ctx.clearRect(0,0,W,HP); vctx.clearRect(0,0,W,HV);
+    const n = bars.length;
+    const allP = bars.flatMap(b => [b.h, b.l]);
+    const mn = Math.min(...allP), mx = Math.max(...allP), rng = mx - mn || 1;
+    const bw = Math.max(3, Math.floor((W - PAD*2) / n * 0.6));
+    const gap = (W - PAD*2) / n;
+    function toX(i) {{ return PAD + i*gap + gap/2; }}
+    function toY(v) {{ return PAD + (HP - PAD*2) * (1 - (v-mn)/rng); }}
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 0.5;
+    for (let i=0; i<=4; i++) {{
+      const y = PAD + (HP-PAD*2)*i/4;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+      const val = mx - (mx-mn)*i/4;
+      ctx.fillStyle = '#475569'; ctx.font = '9px sans-serif';
+      ctx.fillText(Math.round(val).toLocaleString('id-ID'), 2, y-2);
+    }}
+    const closes = bars.map(b => b.c);
+    function ma(arr, n) {{ return arr.map((_, i) => {{ const s = arr.slice(Math.max(0,i-n+1), i+1); return s.reduce((a,b)=>a+b,0)/s.length; }}); }}
+    [[ma(closes,7),'#60a5fa'],[ma(closes,14),'#f59e0b']].forEach(([arr,col]) => {{
+      ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = 1.2;
+      arr.forEach((v,i) => {{ i===0 ? ctx.moveTo(toX(i),toY(v)) : ctx.lineTo(toX(i),toY(v)); }});
+      ctx.stroke();
+    }});
+    bars.forEach((b,i) => {{
+      const x = toX(i), green = b.c >= b.o, col = green ? '#4ade80' : '#f87171';
+      ctx.strokeStyle = col; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x,toY(b.h)); ctx.lineTo(x,toY(b.l)); ctx.stroke();
+      const y1 = toY(Math.max(b.o,b.c)), y2 = toY(Math.min(b.o,b.c));
+      ctx.fillStyle = col; ctx.fillRect(x-bw/2, y1, bw, Math.max(1, y2-y1));
+      if (i%5===0 || i===n-1) {{
+        ctx.fillStyle = '#475569'; ctx.font = '8px sans-serif';
+        ctx.fillText(b.d, x-10, HP-2);
+      }}
+    }});
+    const maxV = Math.max(...bars.map(b => b.v)) || 1;
+    bars.forEach((b,i) => {{
+      const x = toX(i), h = Math.max(2, b.v/maxV*(HV-4));
+      const green = i===0 || b.v >= bars[i-1].v;
+      vctx.fillStyle = green ? '#1D9E75' : '#EF9F27';
+      vctx.fillRect(x-bw/2, HV-h, bw, h);
+    }});
+  }}
+
+  document.getElementById('fc-sel-{key}').addEventListener('change', function() {{
+    drawChart_{key}(this.value);
+  }});
+  drawChart_{key}('{codes_with_data[0]}');
+}})();
+</script>
+"""
+    components.html(html, height=height, scrolling=False)
+
+
 def render_candlestick(code, all_ohlcv, n_days=30, chart_key='chart'):
     """Render candlestick chart + volume bar untuk saham tertentu.
     Menggunakan index kategorikal agar tidak ada gap hari libur.
@@ -1525,8 +1633,21 @@ def main():
         # nol tiap kali — bahkan cuma buka tab "Cari Saham" yang sebenarnya cuma
         # butuh lookup dari hasil yang SUDAH dihitung. Cache hanya recompute kalau
         # data screener beneran berubah (upload baru).
-        _scan_sig = (len(all_dates), target, len(all_ohlcv))
-        if st.session_state.get('_scan_pipeline_sig') != _scan_sig:
+        # _SCAN_CACHE_VERSION dinaikkan tiap kali struktur _sp_cache berubah (nambah
+        # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
+        # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
+        # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
+        _SCAN_CACHE_VERSION = 2
+        _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
+        _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
+                     and '_scan_pipeline_cache' in st.session_state)
+        if _cache_ok:
+            _required_keys = {'boa_full','boa_near','p1_list','p3_list','ol_list','sv_list',
+                               'alert_list','clean','sp_list','bos_list','boh_list','div_list',
+                               'ttx_list','ara_list','auto_sp'}
+            if not _required_keys.issubset(st.session_state['_scan_pipeline_cache'].keys()):
+                _cache_ok = False
+        if not _cache_ok:
             _sp_cache = {}
             _sp_cache['boa_full'], _sp_cache['boa_near'] = scan_boa(all_ohlcv, avg_vols, target)
             _sp_cache['p1_list']   = scan_p1(all_ohlcv, avg_vols, target)
@@ -1618,9 +1739,9 @@ def main():
         # ── Build data OHLCV untuk Miracle Cuan (embed langsung, bukan URL luar) ──
         try:
             _sp_wl_mc = [r for r in sp_list if r.get('in_wl')]
-            _sp_data_mc = ','.join([f"{r['code']}:{r['close']}" for r in _sp_wl_mc[:30]])
+            _sp_data_mc = ','.join([f"{r['code']}:{r['close']}" for r in _sp_wl_mc])
             _ohlcv_parts_mc = []
-            for _r in _sp_wl_mc[:10]:
+            for _r in _sp_wl_mc:
                 _c = _r['code']
                 _b = all_ohlcv.get(_c, [])[-14:]
                 if len(_b) < 3: continue
@@ -2460,13 +2581,10 @@ def main():
             st.markdown(f"**{len(auto_sp)} saham terseleksi**")
             st.html(tbl_html)
 
-            # Chart candlestick
+            # Chart candlestick (versi cepat — ganti saham nggak perlu reload)
             st.divider()
             codes_available = [r['code'] for r in auto_sp]
-            col_sel, col_day = st.columns([3,1])
-            selected = col_sel.selectbox('📊 Chart:', options=codes_available, index=0, key='autosp_chart_select')
-            n_days = col_day.selectbox('Periode:', options=[14,21,30], index=2, key='autosp_chart_days')
-            render_candlestick(selected, all_ohlcv, n_days=n_days, chart_key='autosp_chart_'+selected)
+            render_fast_chart(codes_available, all_ohlcv, n_days=30, key='autosp')
 
             # Distribusi pola
             st.divider()
@@ -2612,12 +2730,11 @@ def main():
                 hide_index=True,
             )
 
-            # Chart candlestick dari track record
+            # Chart candlestick dari track record (versi cepat)
             st.divider()
             tr_codes = df_show['Code'].unique().tolist()
             if tr_codes:
-                sel_tr = st.selectbox('📊 Chart saham:', tr_codes, key='tr_chart_select')
-                render_candlestick(sel_tr, all_ohlcv, n_days=30, chart_key='tr_chart2_'+sel_tr)
+                render_fast_chart(tr_codes, all_ohlcv, n_days=30, key='trackrecord')
         else:
             st.info(f"Belum ada data track record untuk pola {pattern_sel}. Upload lebih banyak file screener ke folder data/.")
 
