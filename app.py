@@ -1042,6 +1042,7 @@ def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart'):
     if not parts:
         st.info("Tidak ada data chart untuk saham-saham ini.")
         return
+    parts.sort(key=lambda p: p.split('~')[0])
     ohlcv_payload = ';'.join(parts)
     codes_with_data = [p.split('~')[0] for p in parts]
     options_html = ''.join([f'<option value="{c}">{c}</option>' for c in codes_with_data])
@@ -1740,7 +1741,7 @@ def main():
 
         # ── Build data OHLCV untuk Miracle Cuan (embed langsung, bukan URL luar) ──
         try:
-            _sp_wl_mc = [r for r in sp_list if r.get('in_wl')]
+            _sp_wl_mc = sorted([r for r in sp_list if r.get('in_wl')], key=lambda r: r['code'])
             _sp_data_mc = ','.join([f"{r['code']}:{r['close']}" for r in _sp_wl_mc])
             _ohlcv_parts_mc = []
             for _r in _sp_wl_mc:
