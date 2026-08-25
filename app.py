@@ -1052,8 +1052,8 @@ def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart'):
     {options_html}
   </select>
   <div id="fc-lbl-{key}" style="font-size:12px;color:#94a3b8;margin-bottom:4px"></div>
-  <canvas id="fc-price-{key}" style="width:100%;display:block"></canvas>
-  <canvas id="fc-vol-{key}" style="width:100%;display:block;margin-top:4px"></canvas>
+  <canvas id="fc-price-{key}" style="display:block"></canvas>
+  <canvas id="fc-vol-{key}" style="display:block;margin-top:4px"></canvas>
 </div>
 <script>
 (function(){{
@@ -1077,6 +1077,8 @@ def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart'):
     const W = Math.min(350, cvP.parentElement.getBoundingClientRect().width - 24);
     const HP = 220, HV = 60, PAD = 6;
     cvP.width = W; cvP.height = HP; cvV.width = W; cvV.height = HV;
+    cvP.style.width = W + 'px'; cvP.style.height = HP + 'px';
+    cvV.style.width = W + 'px'; cvV.style.height = HV + 'px';
     const ctx = cvP.getContext('2d'), vctx = cvV.getContext('2d');
     ctx.clearRect(0,0,W,HP); vctx.clearRect(0,0,W,HV);
     const n = bars.length;
