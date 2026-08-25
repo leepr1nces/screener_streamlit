@@ -1023,7 +1023,7 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
 # ══════════════════════════════════════════════════════════════════════════════
 # CANDLESTICK CHART
 # ══════════════════════════════════════════════════════════════════════════════
-def render_fast_chart(codes, all_ohlcv, n_days=30, height=290, key='fastchart'):
+def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart'):
     """Chart candlestick+volume yang CEPAT — semua data OHLCV untuk 'codes' di-embed
     langsung sebagai JS (sama seperti kalkulator Miracle Cuan), jadi ganti pilihan
     saham di dropdown-nya nggak perlu Streamlit rerun sama sekali (instan, murni
@@ -1047,8 +1047,8 @@ def render_fast_chart(codes, all_ohlcv, n_days=30, height=290, key='fastchart'):
     options_html = ''.join([f'<option value="{c}">{c}</option>' for c in codes_with_data])
 
     html = f"""
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:10px;border-radius:8px;max-width:400px;margin:0 auto">
-  <select id="fc-sel-{key}" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:6px 10px;font-size:13px;margin-bottom:8px">
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;max-width:520px;margin:0 auto;box-sizing:border-box">
+  <select id="fc-sel-{key}" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:6px 10px;font-size:13px;margin-bottom:8px;width:100%">
     {options_html}
   </select>
   <div id="fc-lbl-{key}" style="font-size:12px;color:#94a3b8;margin-bottom:4px"></div>
@@ -1074,8 +1074,8 @@ def render_fast_chart(codes, all_ohlcv, n_days=30, height=290, key='fastchart'):
     const lbl = document.getElementById('fc-lbl-{key}');
     if (!bars || bars.length < 3) {{ lbl.textContent = code + ' — data tidak cukup'; return; }}
     lbl.textContent = '📊 ' + code + ' — ' + bars.length + 'H';
-    const W = Math.min(380, cvP.parentElement.getBoundingClientRect().width - 20);
-    const HP = {max(100, height-140)}, HV = 60, PAD = 6;
+    const W = Math.min(350, cvP.parentElement.getBoundingClientRect().width - 24);
+    const HP = 220, HV = 60, PAD = 6;
     cvP.width = W; cvP.height = HP; cvV.width = W; cvV.height = HV;
     const ctx = cvP.getContext('2d'), vctx = cvV.getContext('2d');
     ctx.clearRect(0,0,W,HP); vctx.clearRect(0,0,W,HV);
