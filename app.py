@@ -1705,7 +1705,7 @@ def main():
                         "tanggal": target, "code": _r['code'], "close_entry": _close,
                         "tp1_pct": 5, "harga_tp1": round(_close * 1.05),
                         "tp2_pct": 13, "harga_tp2": round(_close * 1.13),
-                        "use_sl": True, "sl_pct": 5, "harga_sl": round(_close * 0.95),
+                        "use_sl": True, "sl_pct": 10, "harga_sl": round(_close * 0.90),
                     })
                 _sp_fingerprint = _hashlib.md5(
                     str(sorted((e['code'], e['close_entry']) for e in _sp_entries)).encode()
