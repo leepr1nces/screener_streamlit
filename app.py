@@ -759,9 +759,10 @@ def scan_bersih2(all_ohlcv, avg_vols, target, chg_min=3.0, chg_max=10.0,
                 if c > max_prior_chg: max_prior_chg = c
         if max_prior_chg > spike_limit: continue
 
+        hvp0 = (today['H'] - today['P']) / today['P'] * 100 if today.get('H') and today.get('P') and today['P'] > 0 else 0
         results.append({
             'code': code, 'in_wl': in_wl, 'close': int(today['C']),
-            'chg': round(chg0, 2), 'max_prior_chg': round(max_prior_chg, 1),
+            'chg': round(chg0, 2), 'hvp': round(hvp0, 2), 'max_prior_chg': round(max_prior_chg, 1),
         })
     results.sort(key=lambda x: (-int(x['in_wl']), -x['chg']))
     return results
@@ -3170,12 +3171,15 @@ def main():
             b2_rows_html = []
             for r in lst_b2:
                 sc = '+' if r['chg'] > 0 else ''
+                shvp = '+' if r['hvp'] > 0 else ''
                 b2_rows_html.append(
                     '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
                     '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
                     '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
                     '<td style="padding:7px 10px;text-align:right;color:#4ade80;font-weight:500">' + sc + str(r['chg']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + shvp + str(r['hvp']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + build_price_sparkline(r['code'], all_ohlcv) + '</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + f"{r['max_prior_chg']}%" + '</td>'
                     '</tr>'
                 )
@@ -3186,6 +3190,8 @@ def main():
                 '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">H/P%</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Trend 14H</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Max Chg 30H</th>'
                 '</tr></thead><tbody>' + ''.join(b2_rows_html) + '</tbody></table>'
             )
