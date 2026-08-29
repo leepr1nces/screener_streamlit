@@ -1916,7 +1916,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","💰 SV","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","⭐ AutoSP","🛒 Stockpick","📋 TrackRecord","🌟 Miracle Cuan","🔍 Cari Saham","🔺 ARA"]
+    tab_labels = ["🧹 Scan Bersih","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -1942,7 +1942,7 @@ def main():
             st.info("Tidak ada hasil.")
 
     # Tab BOA
-    with tabs[1]:
+    with tabs[5]:
         boa_wl  = [r for r in boa_full if r['in_wl']]
         near_wl = [r for r in boa_near if r['in_wl']]
         ca, cb  = st.columns(2)
@@ -1982,7 +1982,7 @@ def main():
             else: st.info("Tidak ada Hampir BOA.")
 
     # Tab P1
-    with tabs[2]:
+    with tabs[6]:
         lst = [r for r in p1_list if r['in_wl']] if show_only_wl else p1_list
         st.markdown(f"**P1 RCDrop1 | WL: {len([r for r in p1_list if r['in_wl']])} | Total: {len(p1_list)}**")
         if lst:
@@ -2002,7 +2002,7 @@ def main():
         else: st.info("Tidak ada P1 saat ini.")
 
     # Tab P3
-    with tabs[3]:
+    with tabs[7]:
         lst = [r for r in p3_list if r['in_wl']] if show_only_wl else p3_list
         st.markdown(f"**P3 Momentum | WL: {len([r for r in p3_list if r['in_wl']])} | Total: {len(p3_list)}**")
         if lst:
@@ -2021,7 +2021,7 @@ def main():
         else: st.info("Tidak ada P3 saat ini.")
 
     # Tab OLseq
-    with tabs[4]:
+    with tabs[8]:
         lst = [r for r in ol_list if r['in_wl'] and r['vol']>0] if show_only_wl else [r for r in ol_list if r['vol']>0]
         st.markdown(f"**OL Berturut | WL: {len([r for r in ol_list if r['in_wl']])} | Total: {len(ol_list)}**")
         if lst:
@@ -2040,7 +2040,7 @@ def main():
         else: st.info("Tidak ada OL Berturut saat ini.")
 
     # Tab SV
-    with tabs[5]:
+    with tabs[4]:
         lst = [r for r in sv_list if r['in_wl']] if show_only_wl else sv_list
         st.markdown(f"**Spike Valuasi Rp800Jt-5M | WL: {len([r for r in sv_list if r['in_wl']])} | Total: {len(sv_list)}**")
         only_lowv = st.checkbox("🔵 Hanya tampilkan LowV", key='sv_only_lowv')
@@ -2087,7 +2087,7 @@ def main():
         else: st.info("Tidak ada SV saat ini.")
 
     # Tab Alert
-    with tabs[6]:
+    with tabs[9]:
         lst = [r for r in alert_list if r['in_wl']] if show_only_wl else alert_list
         st.markdown(f"**Alert Reversal | WL: {len([r for r in alert_list if r['in_wl']])} | Total: {len(alert_list)}**")
         if lst:
@@ -2106,7 +2106,7 @@ def main():
             st.success("✅ Tidak ada Alert WL saat ini — pasar sehat!")
 
     # Tab Stockpick
-    with tabs[12]:
+    with tabs[2]:
         st.markdown("### 🛒 Stockpick Buy Close")
 
         # Parameter fixed (tidak perlu slider lagi)
@@ -2285,7 +2285,7 @@ def main():
 
 
     # Tab BOS
-    with tabs[7]:
+    with tabs[10]:
         lst = [r for r in bos_list if r['in_wl']] if show_only_wl else bos_list
         entry_lst = [r for r in lst if r['entry'] != 'Tunggu']
         wait_lst  = [r for r in lst if r['entry'] == 'Tunggu']
@@ -2318,7 +2318,7 @@ def main():
                 use_container_width=True, height=250)
 
     # Tab BOH
-    with tabs[8]:
+    with tabs[11]:
         lst = [r for r in boh_list if r['in_wl']] if show_only_wl else boh_list
         entry_lst = [r for r in lst if r['vol_kering']]
         watch_lst = [r for r in lst if not r['vol_kering']]
@@ -2349,7 +2349,7 @@ def main():
             st.info("Tidak ada BOH dalam pantauan.")
 
     # Tab Divergen
-    with tabs[9]:
+    with tabs[12]:
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
         lst = sorted(lst, key=lambda r: r['chg'])
         st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
@@ -2404,7 +2404,7 @@ def main():
             st.info("Tidak ada saham dengan pola Divergen hari ini.")
 
     # Tab TTx
-    with tabs[10]:
+    with tabs[13]:
         remind_lst   = [r for r in ttx_list if r['priority'] == 0]
         confirm_lst  = [r for r in ttx_list if r['priority'] == 1]
         upcoming_lst = [r for r in ttx_list if r['priority'] == 2]
@@ -2445,7 +2445,7 @@ def main():
 
 
     # Tab Auto StockPick
-    with tabs[11]:
+    with tabs[3]:
         st.markdown(f"**⭐ Auto StockPick — {target}**")
         st.caption("Filter: ≥3 pola ATAU 2 pola + spike ≥5% dalam 10H | Sorted: Chg% → H/P% → N Pola")
 
@@ -2601,7 +2601,7 @@ def main():
         else:
             st.info("Belum ada sinyal Auto StockPick hari ini.")
     # Tab Track Record
-    with tabs[13]:
+    with tabs[14]:
         st.markdown(f"**📋 Track Record | Entry → Max High T+1~T+5 | Semua Histori**")
         st.caption("Entry = muncul di pola tsb hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
 
@@ -2742,7 +2742,7 @@ def main():
             st.info(f"Belum ada data track record untuk pola {pattern_sel}. Upload lebih banyak file screener ke folder data/.")
 
     # Tab Miracle Cuan
-    with tabs[14]:
+    with tabs[1]:
         _mc_data_embed = st.session_state.get('miracle_data', '')
         _mc_ohlcv_embed = st.session_state.get('miracle_ohlcv', '')
         if not _mc_data_embed:
