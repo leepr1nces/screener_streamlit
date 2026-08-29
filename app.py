@@ -735,11 +735,11 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
     return results[:75]
 
 
-def scan_bersih2(all_ohlcv, avg_vols, target, chg_min=3.0, chg_max=10.0,
+def scan_bersih2(all_ohlcv, avg_vols, target, chg_min=3.0, chg_max=9.0,
                   lookback_days=30, spike_limit=10.0):
     """Scan Bersih v2: saham yang BELUM PERNAH naik >spike_limit% dalam
     lookback_days terakhir (30 hari, sebelum hari ini), lalu hari ini closing
-    naik chg_min-chg_max% (3-10%)."""
+    naik chg_min-chg_max% (3-9%)."""
     results = []
     for code, bars in all_ohlcv.items():
         if not bars or bars[-1]['date'] != target: continue
@@ -1804,6 +1804,51 @@ def main():
                 _resp_sp2 = _requests_upd2.post(
                     "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
                     json={"action": "bulk_update_tpsl", "sheet": "StockPick Log", "date": target, "updates": _updates, "max_hold_days": 10},
+                    timeout=15
+                )
+            except Exception:
+                pass
+
+        # ── Auto-log semua saham New30 ke Google Sheet "New30 Log" (mirip StockPick
+        # Log, tapi TANPA SL & tanpa batas hari — TP1(5%)/TP2(13%) dilacak terbuka) ──
+        if _is_closing_snapshot:
+            try:
+                import requests as _requests_n30
+                _n30_wl_auto = [r for r in bersih2_list if r.get('in_wl')]
+                _n30_entries = []
+                for _r in _n30_wl_auto:
+                    _close = _r['close']
+                    _n30_entries.append({
+                        "tanggal": target, "code": _r['code'], "close_entry": _close,
+                        "tp1_pct": 5, "harga_tp1": round(_close * 1.05),
+                        "tp2_pct": 13, "harga_tp2": round(_close * 1.13),
+                        "use_sl": False, "sl_pct": 0, "harga_sl": 0,
+                    })
+                _n30_fingerprint = _hashlib.md5(
+                    str(sorted((e['code'], e['close_entry']) for e in _n30_entries)).encode()
+                ).hexdigest()[:12]
+                _n30_log_key = f"n30_log_sent_{target}_{_n30_fingerprint}"
+                if not st.session_state.get(_n30_log_key) and _n30_entries:
+                    _resp_n30 = _requests_n30.post(
+                        "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                        json={"action": "bulk_add_entries", "sheet": "New30 Log", "entries": _n30_entries},
+                        timeout=20
+                    )
+                    st.session_state["n30_log_last_result"] = (
+                        f"✅ New30 Log {target}: {_resp_n30.json().get('result',{})}" if _resp_n30.ok
+                        else f"⚠️ New30 Log gagal (HTTP {_resp_n30.status_code})"
+                    )
+                    st.session_state[_n30_log_key] = True
+            except Exception as _e_n30:
+                st.session_state["n30_log_last_result"] = f"⚠️ New30 Log gagal: {_e_n30}"
+
+        # ── Auto-update TP/SL untuk New30 Log (tanpa max_hold_days, terbuka) ──
+        if _updates:
+            try:
+                import requests as _requests_upd3
+                _resp_n30_2 = _requests_upd3.post(
+                    "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                    json={"action": "bulk_update_tpsl", "sheet": "New30 Log", "date": target, "updates": _updates},
                     timeout=15
                 )
             except Exception:
@@ -3162,11 +3207,11 @@ def main():
         else:
             st.info("Tidak ada saham dengan pola ARA dalam 25 hari terakhir.")
 
-    # Tab New30 — belum pernah naik >10% dalam 30H, hari ini closing +3-10%
+    # Tab New30 — belum pernah naik >10% dalam 30H, hari ini closing +3-9%
     with tabs[1]:
         lst_b2 = [r for r in bersih2_list if r['in_wl']] if show_only_wl else bersih2_list
-        st.markdown(f"**🆕 New30 — Belum Naik >10% dlm 30H, Closing +3-10% | WL: {len([r for r in bersih2_list if r['in_wl']])} | Total: {len(bersih2_list)}**")
-        st.caption("Kriteria: tidak ada satupun hari dalam 30 hari terakhir (sebelum hari ini) dengan kenaikan >10%, lalu hari ini closing naik 3-10%.")
+        st.markdown(f"**🆕 New30 — Belum Naik >10% dlm 30H, Closing +3-9% | WL: {len([r for r in bersih2_list if r['in_wl']])} | Total: {len(bersih2_list)}**")
+        st.caption("Kriteria: tidak ada satupun hari dalam 30 hari terakhir (sebelum hari ini) dengan kenaikan >10%, lalu hari ini closing naik 3-9%.")
         if lst_b2:
             b2_rows_html = []
             for r in lst_b2:
@@ -3199,27 +3244,9 @@ def main():
         else:
             st.info("Tidak ada saham dengan pola ini hari ini.")
 
-        st.divider()
-        st.markdown("**📋 TrackRecord New30**")
-        st.caption("TANPA SL — cuma lacak di hari ke berapa (H+n) TP1 (5%) dan TP2 (13%) tercapai dari Close saat entry historis. '-' = belum pernah tercapai.")
-        if st.button("🔍 Hitung TrackRecord", key='btn_bersih2_tr'):
-            with st.spinner("Menghitung TrackRecord New30 (bisa agak lama)..."):
-                st.session_state['bersih2_tr_cache'] = build_trackrecord_bersih2(all_ohlcv, all_dates)
-
-        b2_tr = st.session_state.get('bersih2_tr_cache')
-        if b2_tr is not None:
-            if b2_tr:
-                tp1_col = [k for k in b2_tr[0].keys() if k.startswith('TP1')][0]
-                tp2_col = [k for k in b2_tr[0].keys() if k.startswith('TP2')][0]
-                n_tp1_hit = len([r for r in b2_tr if r[tp1_col] != '-'])
-                n_tp2_hit = len([r for r in b2_tr if r[tp2_col] != '-'])
-                mc1, mc2, mc3 = st.columns(3)
-                mc1.metric("Total Entry", len(b2_tr))
-                mc2.metric(f"{tp1_col} Hit", f"{n_tp1_hit} ({n_tp1_hit/len(b2_tr)*100:.0f}%)")
-                mc3.metric(f"{tp2_col} Hit", f"{n_tp2_hit} ({n_tp2_hit/len(b2_tr)*100:.0f}%)")
-                st.dataframe(pd.DataFrame(b2_tr), use_container_width=True, hide_index=True, height=400)
-            else:
-                st.info("Tidak ada entry historis untuk pola ini.")
+        render_trading_log_section("📊 Statistik New30 Log (Otomatis)", "New30 Log", "n30_stats_cache")
+        if st.session_state.get("n30_log_last_result"):
+            st.caption(st.session_state["n30_log_last_result"])
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
