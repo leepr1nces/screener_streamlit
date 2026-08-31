@@ -2644,7 +2644,21 @@ def main():
             }
 
             tbl_rows = []
-            for r in auto_sp:
+            # Prioritaskan kombinasi BOA+BOS dan BOA+Div — muncul di atas, ditandai badge khusus
+            def _has_boa(pola): return any(p.startswith('BOA') for p in pola)
+            def _priority_combo(pola):
+                has_boa = _has_boa(pola)
+                has_bos = 'BOS' in pola
+                has_div = 'Div' in pola
+                if has_boa and has_bos: return 'BOA+BOS'
+                if has_boa and has_div: return 'BOA+Div'
+                return None
+
+            only_priority = st.checkbox("⭐ Hanya tampilkan prioritas (BOA+BOS atau BOA+Div)", key='autosp_only_priority')
+            auto_sp_sorted = sorted(auto_sp, key=lambda r: (_priority_combo(r['pola']) is None,))
+            display_list = [r for r in auto_sp_sorted if _priority_combo(r['pola'])] if only_priority else auto_sp_sorted
+
+            for r in display_list:
                 bars_data = all_ohlcv.get(r['code'], [])
                 cls = [b['C'] for b in bars_data[-14:] if b.get('C')]
                 if len(cls) >= 3:
@@ -2663,6 +2677,9 @@ def main():
                 for p in r['pola']:
                     bg2, fg2 = BADGE.get(p, ('#E6F1FB','#0C447C'))
                     badge_parts.append('<span style="background:' + bg2 + ';color:' + fg2 + ';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;margin-right:3px;white-space:nowrap">' + p + '</span>')
+                combo = _priority_combo(r['pola'])
+                if combo:
+                    badge_parts.append('<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-right:3px;white-space:nowrap">⭐ ' + combo + '</span>')
                 badges = ''.join(badge_parts)
 
                 chg = r['chg']; hvp = r['hvp']
@@ -2696,7 +2713,7 @@ def main():
                 '<th style="padding:8px 10px;text-align:left;color:#888;font-weight:400">Filter</th>'
                 '</tr></thead><tbody>' + ''.join(tbl_rows) + '</tbody></table>'
             )
-            st.markdown(f"**{len(auto_sp)} saham terseleksi**")
+            st.markdown(f"**{len(display_list)} saham terseleksi**")
             st.html(tbl_html)
 
             # Chart candlestick (versi cepat — ganti saham nggak perlu reload)
