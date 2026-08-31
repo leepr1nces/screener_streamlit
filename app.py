@@ -3023,6 +3023,18 @@ def main():
                 if closed_entries:
                     closed_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
                     st.markdown(f"**{len(closed_entries)} entry sudah match (closed)**")
+                    dates_sorted_cl = sorted(all_dates)
+                    def _compute_close_date(entry_date, hari_n):
+                        try:
+                            hari_n = int(hari_n)
+                        except (ValueError, TypeError):
+                            return ''
+                        if entry_date not in dates_sorted_cl: return ''
+                        idx_e = dates_sorted_cl.index(entry_date)
+                        idx_c = idx_e + hari_n
+                        if idx_c < 0 or idx_c >= len(dates_sorted_cl): return ''
+                        return dates_sorted_cl[idx_c]
+
                     _rows2 = []
                     for e in closed_entries:
                         is_tp2 = e.get('status') == 'TP2 Hit'
@@ -3042,10 +3054,14 @@ def main():
                             result_label = '⏹️ Dismiss'; result_color = '#94a3b8'
                             gain_display = e.get('catatan','') or '-'
                             hari_final = e.get('hari_berjalan','')
+                        close_date = _compute_close_date(e.get('tanggal',''), hari_final)
+                        is_new_close = close_date and close_date == target
+                        new_badge2 = '<span style="background:#fed7aa;color:#9a3412;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px">🆕 NEW</span>' if is_new_close else ''
                         pola_badges2 = _entry_badges(e.get('code',''), e.get('tanggal',''))
                         _rows2.append(
                             '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
                             f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
+                            f'<td style="padding:6px 8px;font-size:12px">{close_date or "-"}{new_badge2}</td>'
                             f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
                             f'<td style="padding:6px 8px">{pola_badges2}</td>'
                             f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
@@ -3057,7 +3073,8 @@ def main():
                     _tbl2 = (
                         '<table style="width:100%;border-collapse:collapse">'
                         '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
-                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Entry</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Close</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
