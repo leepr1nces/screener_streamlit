@@ -1884,6 +1884,81 @@ def main():
     if st.session_state.get("sp_log_time_check"):
         st.caption(f"📌 StockPick Log: {st.session_state['sp_log_time_check']}")
 
+    # ── Baru Kena TP Hari Ini (gabungan Trading Log + StockPick Log + New30 Log) ──
+    def _fetch_recent_tp_hits(target_date, dates_list):
+        """Fetch entries dari 3 log, cari yang baru kena TP1/TP2 PERSIS hari ini."""
+        import requests as _req_tp
+        webhook = "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec"
+        sheets = ["Trading Log", "StockPick Log", "New30 Log"]
+        dates_sorted_tp = sorted(dates_list)
+        hits = []
+        for sheet_name in sheets:
+            try:
+                resp = _req_tp.get(webhook, params={'action': 'get_stats', 'sheet': sheet_name}, timeout=15)
+                if not resp.ok: continue
+                data = resp.json()
+                if data.get('status') != 'ok': continue
+                for e in data.get('entries', []):
+                    # Baru kena TP1: masih berjalan, TP1 tercapai, & tercapai PERSIS hari ini
+                    hari_tp1 = str(e.get('hari_tp1', ''))
+                    hari_berjalan = str(e.get('hari_berjalan', ''))
+                    if e.get('tp1_hit') and hari_tp1 not in ('', 'None') and hari_tp1 == hari_berjalan:
+                        hits.append({'source': sheet_name, 'code': e.get('code'), 'level': 'TP1',
+                                     'price': e.get('harga_tp1'), 'pct': e.get('tp1_pct')})
+                    # Baru kena TP2: sudah closed TP2 Hit, tanggal closing-nya PERSIS hari ini
+                    if e.get('status') == 'TP2 Hit':
+                        entry_date = e.get('tanggal')
+                        try:
+                            hari_n = int(e.get('hari_tp2'))
+                            if entry_date in dates_sorted_tp:
+                                idx_e = dates_sorted_tp.index(entry_date)
+                                idx_c = idx_e + hari_n
+                                if 0 <= idx_c < len(dates_sorted_tp) and dates_sorted_tp[idx_c] == target_date:
+                                    hits.append({'source': sheet_name, 'code': e.get('code'), 'level': 'TP2',
+                                                 'price': e.get('harga_tp2'), 'pct': e.get('tp2_pct')})
+                        except (ValueError, TypeError):
+                            pass
+            except Exception:
+                continue
+        return hits
+
+    _tp_hit_key = f"recent_tp_hits_{target}"
+    col_tph1, col_tph2 = st.columns([5, 1])
+    if col_tph2.button("🔄", key="refresh_recent_tp", help="Refresh Baru Kena TP"):
+        st.session_state.pop(_tp_hit_key, None)
+    if _tp_hit_key not in st.session_state:
+        with st.spinner("Cek TP1/TP2 terbaru dari semua log..."):
+            st.session_state[_tp_hit_key] = _fetch_recent_tp_hits(target, all_dates)
+    recent_hits = st.session_state[_tp_hit_key]
+
+    with col_tph1:
+        if recent_hits:
+            st.markdown(f"**🎯 Baru Kena TP Hari Ini — {len(recent_hits)} saham**")
+            _src_color = {
+                'Trading Log':   ('#DBEAFE', '#1E3A8A'),
+                'StockPick Log': ('#DCFCE7', '#166534'),
+                'New30 Log':     ('#F3E8FF', '#6B21A8'),
+            }
+            _hit_cards = []
+            for h in recent_hits:
+                bg, fg = _src_color.get(h['source'], ('#F1F5F9', '#334155'))
+                lvl_bg, lvl_fg = ('#FEF3C7', '#92400E') if h['level'] == 'TP1' else ('#BBF7D0', '#14532D')
+                _hit_cards.append(
+                    f'<div style="background:{bg};border:1px solid rgba(0,0,0,0.08);border-radius:10px;'
+                    f'padding:10px 14px;min-width:130px">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">'
+                    f'<span style="font-weight:700;font-size:14px;color:{fg}">{h["code"]}</span>'
+                    f'<span style="background:{lvl_bg};color:{lvl_fg};font-size:10px;font-weight:700;'
+                    f'padding:2px 7px;border-radius:5px;white-space:nowrap">✅ {h["level"]}</span>'
+                    f'</div>'
+                    f'<div style="font-size:11px;color:{fg};opacity:0.85">@{h.get("price","")} ({h.get("pct","")})</div>'
+                    f'<div style="font-size:10px;color:{fg};opacity:0.6;margin-top:2px">{h["source"]}</div>'
+                    f'</div>'
+                )
+            st.html('<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">' + ''.join(_hit_cards) + '</div>')
+        else:
+            st.caption("🎯 Belum ada saham yang kena TP1/TP2 hari ini (dari 3 log).")
+
     # ── Summary chips ─────────────────────────────────────────────────────────
     cols = st.columns(5)
     chips = [
