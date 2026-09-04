@@ -1934,28 +1934,31 @@ def main():
     with col_tph1:
         if recent_hits:
             st.markdown(f"**🎯 Baru Kena TP Hari Ini — {len(recent_hits)} saham**")
-            _src_color = {
-                'Trading Log':   ('#DBEAFE', '#1E3A8A'),
-                'StockPick Log': ('#DCFCE7', '#166534'),
-                'New30 Log':     ('#F3E8FF', '#6B21A8'),
-            }
-            _hit_cards = []
+            _src_short = {'Trading Log': 'Trading Log', 'StockPick Log': 'StockPick Log', 'New30 Log': 'New30 Log'}
+            _rows_tp = []
             for h in recent_hits:
-                bg, fg = _src_color.get(h['source'], ('#F1F5F9', '#334155'))
                 lvl_bg, lvl_fg = ('#FEF3C7', '#92400E') if h['level'] == 'TP1' else ('#BBF7D0', '#14532D')
-                _hit_cards.append(
-                    f'<div style="background:{bg};border:1px solid rgba(0,0,0,0.08);border-radius:10px;'
-                    f'padding:10px 14px;min-width:130px">'
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">'
-                    f'<span style="font-weight:700;font-size:14px;color:{fg}">{h["code"]}</span>'
-                    f'<span style="background:{lvl_bg};color:{lvl_fg};font-size:10px;font-weight:700;'
-                    f'padding:2px 7px;border-radius:5px;white-space:nowrap">✅ {h["level"]}</span>'
-                    f'</div>'
-                    f'<div style="font-size:11px;color:{fg};opacity:0.85">@{h.get("price","")} ({h.get("pct","")})</div>'
-                    f'<div style="font-size:10px;color:{fg};opacity:0.6;margin-top:2px">{h["source"]}</div>'
-                    f'</div>'
+                _rows_tp.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                    f'<td style="padding:5px 8px;font-weight:600;font-size:13px">{h["code"]}</td>'
+                    f'<td style="padding:5px 8px;text-align:center">'
+                    f'<span style="background:{lvl_bg};color:{lvl_fg};font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px">✅ {h["level"]}</span></td>'
+                    f'<td style="padding:5px 8px;text-align:right;font-size:12px">{h.get("price","")}</td>'
+                    f'<td style="padding:5px 8px;text-align:right;font-size:12px;color:#888">{h.get("pct","")}</td>'
+                    f'<td style="padding:5px 8px;font-size:11px;color:#888">{_src_short.get(h["source"], h["source"])}</td>'
+                    '</tr>'
                 )
-            st.html('<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">' + ''.join(_hit_cards) + '</div>')
+            _tbl_tp = (
+                '<table style="width:100%;border-collapse:collapse">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                '<th style="padding:5px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
+                '<th style="padding:5px 8px;text-align:center;font-size:11px;color:#888">Level</th>'
+                '<th style="padding:5px 8px;text-align:right;font-size:11px;color:#888">Harga</th>'
+                '<th style="padding:5px 8px;text-align:right;font-size:11px;color:#888">%</th>'
+                '<th style="padding:5px 8px;text-align:left;font-size:11px;color:#888">Sumber</th>'
+                '</tr></thead><tbody>' + ''.join(_rows_tp) + '</tbody></table>'
+            )
+            st.html(_tbl_tp)
         else:
             st.caption("🎯 Belum ada saham yang kena TP1/TP2 hari ini (dari 3 log).")
 
