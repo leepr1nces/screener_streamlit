@@ -2291,6 +2291,19 @@ def main():
         elif sv_filter == "LowV saja":
             lst = [r for r in lst if r.get('low_v')]
 
+        # Sorting default: kombinasi paling lengkap (LowV+MA5+MA20) di atas,
+        # turun ke kombinasi yang lebih sedikit.
+        def _sv_combo_priority(r):
+            above_ma5, above_ma20 = _sv_ma_cache[r['code']]
+            low_v = bool(r.get('low_v'))
+            if low_v and above_ma5 and above_ma20: return 0
+            if low_v and above_ma5: return 1
+            if low_v: return 2
+            if above_ma5 and above_ma20: return 3
+            if above_ma5: return 4
+            return 5
+        lst = sorted(lst, key=_sv_combo_priority)
+
         if lst:
             sv_rows_html = []
             for r in lst:
