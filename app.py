@@ -3088,12 +3088,14 @@ def main():
                         tp2_c = '#4ade80' if tp2_hit else '#888'
                         pola_badges = _entry_badges(e.get('code',''), e.get('tanggal',''))
                         ma_badge = get_ma_position_badge(e.get('code',''), all_ohlcv, e.get('tanggal',''))
+                        ma_badge_now = get_ma_position_badge(e.get('code',''), all_ohlcv, target)
                         _rows.append(
                             '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
                             f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
                             f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
                             f'<td style="padding:6px 8px">{pola_badges}</td>'
                             f'<td style="padding:6px 8px">{ma_badge}</td>'
+                            f'<td style="padding:6px 8px">{ma_badge_now}</td>'
                             f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                             f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
                             f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
@@ -3108,7 +3110,8 @@ def main():
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
-                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">vs MA</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">vs MA (Entry)</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">vs MA (Now)</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
                         '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
@@ -3182,7 +3185,7 @@ def main():
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Close</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
-                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">vs MA</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">vs MA (Entry)</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Gain%</th>'
                         '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
