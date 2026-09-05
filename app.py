@@ -1502,26 +1502,42 @@ def truncate_ohlcv_to_date(all_ohlcv, date_t):
     return truncated
 
 
-def get_ma_position_badge(code, all_ohlcv, tanggal):
-    """Cek posisi Close di tanggal entry vs MA5 & MA20 (dihitung dari histori
-    sampai tanggal itu) — buat tandain entry-nya di atas support/MA atau nggak."""
+def get_ma_position(code, all_ohlcv, tanggal):
+    """Cek posisi Close di tanggal itu vs MA5 & MA20 (dihitung dari histori
+    sampai tanggal itu). Return (above_ma5: bool, above_ma20: bool)."""
     bars = all_ohlcv.get(code, [])
     idx = next((i for i, b in enumerate(bars) if b['date'] == tanggal), None)
-    if idx is None: return ''
+    if idx is None: return (False, False)
     close_at_entry = bars[idx].get('C')
-    if not close_at_entry: return ''
+    if not close_at_entry: return (False, False)
     ma5_window = [b['C'] for b in bars[max(0, idx-4):idx+1] if b.get('C')]
     ma20_window = [b['C'] for b in bars[max(0, idx-19):idx+1] if b.get('C')]
-    badges = []
+    above_ma5 = False; above_ma20 = False
     if len(ma5_window) >= 5:
         ma5 = sum(ma5_window) / len(ma5_window)
-        if close_at_entry > ma5:
-            badges.append('<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA5</span>')
+        above_ma5 = close_at_entry > ma5
     if len(ma20_window) >= 20:
         ma20 = sum(ma20_window) / len(ma20_window)
-        if close_at_entry > ma20:
-            badges.append('<span style="background:#F3E8FF;color:#6B21A8;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA20</span>')
+        above_ma20 = close_at_entry > ma20
+    return (above_ma5, above_ma20)
+
+
+def render_ma_position_badge(above_ma5, above_ma20):
+    """Bangun HTML badge dari hasil get_ma_position()."""
+    badges = []
+    if above_ma5:
+        badges.append('<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA5</span>')
+    if above_ma20:
+        badges.append('<span style="background:#F3E8FF;color:#6B21A8;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA20</span>')
     return ''.join(badges) if badges else '<span style="color:#888;font-size:10px">-</span>'
+
+
+def get_ma_position_badge(code, all_ohlcv, tanggal):
+    """Cek posisi Close di tanggal entry vs MA5 & MA20 — return HTML badge langsung.
+    (wrapper lama, dipertahankan biar semua pemanggilan sebelumnya tetap jalan)"""
+    above_ma5, above_ma20 = get_ma_position(code, all_ohlcv, tanggal)
+    return render_ma_position_badge(above_ma5, above_ma20)
+
 
 
 def get_pattern_badges_for_date(all_ohlcv, avg_vols, date_t):
@@ -2258,9 +2274,23 @@ def main():
     with tabs[5]:
         lst = [r for r in sv_list if r['in_wl']] if show_only_wl else sv_list
         st.markdown(f"**Spike Valuasi Rp800Jt-5M | WL: {len([r for r in sv_list if r['in_wl']])} | Total: {len(sv_list)}**")
-        only_lowv = st.checkbox("🔵 Hanya tampilkan LowV", key='sv_only_lowv')
-        if only_lowv:
+        sv_filter = st.selectbox(
+            "Filter kombinasi:",
+            ["Semua", "LowV + MA5 + MA20", "LowV + MA5", "LowV saja"],
+            key='sv_combo_filter'
+        )
+        # Hitung dulu status MA tiap saham (dipakai buat filter & badge)
+        _sv_ma_cache = {}
+        for r in lst:
+            _sv_ma_cache[r['code']] = get_ma_position(r['code'], all_ohlcv, target)
+
+        if sv_filter == "LowV + MA5 + MA20":
+            lst = [r for r in lst if r.get('low_v') and _sv_ma_cache[r['code']][0] and _sv_ma_cache[r['code']][1]]
+        elif sv_filter == "LowV + MA5":
+            lst = [r for r in lst if r.get('low_v') and _sv_ma_cache[r['code']][0]]
+        elif sv_filter == "LowV saja":
             lst = [r for r in lst if r.get('low_v')]
+
         if lst:
             sv_rows_html = []
             for r in lst:
@@ -2268,7 +2298,8 @@ def main():
                 sc = '+' if r['chg'] > 0 else ''
                 candle = '+'.join(x for x in ['OL' if r['ol'] else '','Doji' if r['doji'] else '','CAvg' if r['cavg'] else ''] if x) or '-'
                 lowv_badge = '<span style="background:#DBEAFE;color:#1E3A8A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">🔵 LowV</span>' if r.get('low_v') else ''
-                ma_badge_sv = get_ma_position_badge(r['code'], all_ohlcv, target)
+                above_ma5, above_ma20 = _sv_ma_cache[r['code']]
+                ma_badge_sv = render_ma_position_badge(above_ma5, above_ma20)
                 best_txt = f"{r['best']['date']}+{r['best']['hvp']:.0f}%(Rp{r['best']['val_b']:.2f}M)"
                 sv_rows_html.append(
                     '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
@@ -2278,7 +2309,7 @@ def main():
                     '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(r['chg']) + '%</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px">' + f"{r['vol']:.2f}" + '</td>'
                     '<td style="padding:7px 10px;text-align:center;font-size:12px">' + str(r['n']) + '</td>'
-                    '<td style="padding:7px 10px;text-align:center;white-space:nowrap">' + ma_badge_sv + ' ' + lowv_badge + '</td>'
+                    '<td style="padding:7px 10px;text-align:left;white-space:nowrap">' + ma_badge_sv + ' ' + lowv_badge + '</td>'
                     '<td style="padding:7px 10px;font-size:11px;color:#888">' + best_txt + '</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px">' + f"{r['max_chg15']:+.1f}%" + '</td>'
                     '<td style="padding:7px 10px;text-align:center;font-size:11px">' + candle + '</td>'
@@ -2293,7 +2324,7 @@ def main():
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol</th>'
                 '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Jml Spk</th>'
-                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">MA / LowV</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">MA / LowV</th>'
                 '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Best</th>'
                 '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">mc15%</th>'
                 '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Candle</th>'
