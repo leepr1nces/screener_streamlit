@@ -1502,6 +1502,28 @@ def truncate_ohlcv_to_date(all_ohlcv, date_t):
     return truncated
 
 
+def get_ma_position_badge(code, all_ohlcv, tanggal):
+    """Cek posisi Close di tanggal entry vs MA5 & MA20 (dihitung dari histori
+    sampai tanggal itu) — buat tandain entry-nya di atas support/MA atau nggak."""
+    bars = all_ohlcv.get(code, [])
+    idx = next((i for i, b in enumerate(bars) if b['date'] == tanggal), None)
+    if idx is None: return ''
+    close_at_entry = bars[idx].get('C')
+    if not close_at_entry: return ''
+    ma5_window = [b['C'] for b in bars[max(0, idx-4):idx+1] if b.get('C')]
+    ma20_window = [b['C'] for b in bars[max(0, idx-19):idx+1] if b.get('C')]
+    badges = []
+    if len(ma5_window) >= 5:
+        ma5 = sum(ma5_window) / len(ma5_window)
+        if close_at_entry > ma5:
+            badges.append('<span style="background:#DCFCE7;color:#166534;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA5</span>')
+    if len(ma20_window) >= 20:
+        ma20 = sum(ma20_window) / len(ma20_window)
+        if close_at_entry > ma20:
+            badges.append('<span style="background:#DBEAFE;color:#1E3A8A;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA20</span>')
+    return ''.join(badges) if badges else '<span style="color:#888;font-size:10px">-</span>'
+
+
 def get_pattern_badges_for_date(all_ohlcv, avg_vols, date_t):
     """Hitung semua pola yang lolos di tanggal date_t (histori), return {code: [label,...]}.
     Dipakai buat nampilin badge pola 'saat entry dibuat' di tabel Trading Log."""
@@ -3065,11 +3087,13 @@ def main():
                         tp1_c = '#4ade80' if tp1_hit else '#888'
                         tp2_c = '#4ade80' if tp2_hit else '#888'
                         pola_badges = _entry_badges(e.get('code',''), e.get('tanggal',''))
+                        ma_badge = get_ma_position_badge(e.get('code',''), all_ohlcv, e.get('tanggal',''))
                         _rows.append(
                             '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
                             f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
                             f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
                             f'<td style="padding:6px 8px">{pola_badges}</td>'
+                            f'<td style="padding:6px 8px">{ma_badge}</td>'
                             f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                             f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:{chg_c};font-weight:500">{chg_raw}</td>'
                             f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_berjalan","")}</td>'
@@ -3084,6 +3108,7 @@ def main():
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">vs MA</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
                         '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
@@ -3136,12 +3161,14 @@ def main():
                         is_new_close = close_date and close_date == target
                         new_badge2 = '<span style="background:#fed7aa;color:#9a3412;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px">🆕 NEW</span>' if is_new_close else ''
                         pola_badges2 = _entry_badges(e.get('code',''), e.get('tanggal',''))
+                        ma_badge2 = get_ma_position_badge(e.get('code',''), all_ohlcv, e.get('tanggal',''))
                         _rows2.append(
                             '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
                             f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal","")}</td>'
                             f'<td style="padding:6px 8px;font-size:12px">{close_date or "-"}{new_badge2}</td>'
                             f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("code","")}</td>'
                             f'<td style="padding:6px 8px">{pola_badges2}</td>'
+                            f'<td style="padding:6px 8px">{ma_badge2}</td>'
                             f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_entry","")}</td>'
                             f'<td style="padding:6px 8px;text-align:right;font-size:11px;color:{result_color};font-weight:600">{gain_display}</td>'
                             f'<td style="padding:6px 8px;text-align:center;font-size:12px">{hari_final}</td>'
@@ -3155,6 +3182,7 @@ def main():
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Close</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Pola</th>'
+                        '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">vs MA</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Entry</th>'
                         '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Gain%</th>'
                         '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari</th>'
