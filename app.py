@@ -1516,11 +1516,11 @@ def get_ma_position_badge(code, all_ohlcv, tanggal):
     if len(ma5_window) >= 5:
         ma5 = sum(ma5_window) / len(ma5_window)
         if close_at_entry > ma5:
-            badges.append('<span style="background:#DCFCE7;color:#166534;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA5</span>')
+            badges.append('<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA5</span>')
     if len(ma20_window) >= 20:
         ma20 = sum(ma20_window) / len(ma20_window)
         if close_at_entry > ma20:
-            badges.append('<span style="background:#DBEAFE;color:#1E3A8A;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA20</span>')
+            badges.append('<span style="background:#F3E8FF;color:#6B21A8;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:2px">📈 &gt;MA20</span>')
     return ''.join(badges) if badges else '<span style="color:#888;font-size:10px">-</span>'
 
 
@@ -3070,7 +3070,14 @@ def main():
                     return render_entry_badges(result.get(code, []))
 
                 if running_entries:
-                    running_entries.sort(key=lambda e: str(e.get('tanggal','')), reverse=True)
+                    def _running_sort_key(e):
+                        status_priority = 0 if e.get('status') == 'Running' else 1
+                        try:
+                            hari_n = -int(e.get('hari_berjalan', 0) or 0)
+                        except (ValueError, TypeError):
+                            hari_n = 0
+                        return (status_priority, hari_n)
+                    running_entries.sort(key=_running_sort_key)
                     st.markdown(f"**{len(running_entries)} entry masih berjalan**")
                     _rows = []
                     for e in running_entries:
