@@ -3101,7 +3101,15 @@ def main():
                     f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">{row2}</div>'
                 )
 
-                running_entries = [e for e in entries if e.get('status') in ('Running','Partial')]
+                running_entries_all = [e for e in entries if e.get('status') in ('Running','Partial')]
+                status_filter = st.selectbox(
+                    "Filter status:", ["Semua", "Running", "Partial"],
+                    key=f"status_filter_{cache_key}"
+                )
+                if status_filter == "Semua":
+                    running_entries = running_entries_all
+                else:
+                    running_entries = [e for e in running_entries_all if e.get('status') == status_filter]
                 # Cache badge Pola disimpan di session_state (bukan dict lokal) supaya
                 # PERSISTEN antar Streamlit rerun — tiap klik tab/widget apapun bikin
                 # seluruh script main() jalan ulang dari atas, jadi tanpa ini badge
@@ -3179,7 +3187,7 @@ def main():
                     )
                     st.html(_tbl)
                 else:
-                    st.caption("Tidak ada entry yang sedang berjalan.")
+                    st.caption(f"Tidak ada entry dengan status '{status_filter}'." if status_filter != "Semua" else "Tidak ada entry yang sedang berjalan.")
 
                 # ── Entry yang sudah closed (TP2 Hit / SL Hit) ──
                 closed_entries = [e for e in entries if e.get('status') in ('TP2 Hit','SL Hit','Dismissed')]
