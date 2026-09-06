@@ -1971,10 +1971,15 @@ def main():
 
     with col_tph1:
         if recent_hits:
-            st.markdown(f"**🎯 Baru Kena TP Hari Ini — {len(recent_hits)} saham**")
+            _MAX_SHOW_TP = 10
+            recent_hits_sorted = sorted(recent_hits, key=lambda h: h['level'] != 'TP2')  # TP2 duluan
+            recent_hits_display = recent_hits_sorted[:_MAX_SHOW_TP]
+            _sisa = len(recent_hits_sorted) - len(recent_hits_display)
+            title_extra = f" (menampilkan {len(recent_hits_display)}, +{_sisa} lainnya)" if _sisa > 0 else ""
+            st.markdown(f"**🎯 Baru Kena TP Hari Ini — {len(recent_hits)} saham{title_extra}**")
             _src_short = {'Trading Log': 'Trading Log', 'StockPick Log': 'StockPick Log', 'New30 Log': 'New30 Log'}
             _rows_tp = []
-            for h in recent_hits:
+            for h in recent_hits_display:
                 lvl_bg, lvl_fg = ('#FEF3C7', '#92400E') if h['level'] == 'TP1' else ('#BBF7D0', '#14532D')
                 _rows_tp.append(
                     '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
