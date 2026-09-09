@@ -74,6 +74,293 @@ ALL_WL = set([
     'INAF','INDX','BAJA',
 ])
 
+# Peta sektor per saham (dari data user, 281/313 watchlist ter-cover).
+# Saham yg tidak ada di sini dianggap 'TIDAK DIKETAHUI' — tidak masuk
+# perhitungan rotasi sektor tapi tetap muncul normal di tab lain.
+SEKTOR_MAP = {
+    'AADI': 'ENERGI',
+    'ACST': 'INFRASTRUKTUR',
+    'ADCP': 'PROPERTI PERUMAHAN',
+    'ADHI': 'INFRASTRUKTUR',
+    'ADMG': 'BARANG BAKU',
+    'ADMR': 'ENERGI',
+    'AGRO': 'KEUANGAN',
+    'AGRS': 'KEUANGAN',
+    'AHAP': 'KEUANGAN',
+    'AISA': 'BRG KONSUMER PRIMER',
+    'AKSI': 'TRANSPORTASI LOGISTIK',
+    'AMAN': 'PROPERTI PERUMAHAN',
+    'AMAR': 'KEUANGAN',
+    'AMIN': 'PERINDUSTRIAN',
+    'AMMN': 'BARANG BAKU',
+    'APEX': 'BARANG BAKU',
+    'APLN': 'PROPERTI PERUMAHAN',
+    'ARCI': 'BARANG BAKU',
+    'ARII': 'ENERGI',
+    'ARKO': 'INFRASTRUKTUR',
+    'ARTO': 'KEUANGAN',
+    'ASLC': 'BRG KONSUMEN BUKAN PRIMER',
+    'ATAP': 'PROPERTI PERUMAHAN',
+    'ATLA': 'ENERGI',
+    'AXIO': 'TEKNOLOGI',
+    'AYLS': 'BARANG BAKU',
+    'BABP': 'KEUANGAN',
+    'BABY': 'BRG KONSUMEN BUKAN PRIMER',
+    'BACA': 'KEUANGAN',
+    'BAIK': 'BRG KONSUMER PRIMER',
+    'BAJA': 'BARANG BAKU',
+    'BANK': 'KEUANGAN',
+    'BAPA': 'PROPERTI PERUMAHAN',
+    'BATR': 'BARANG BAKU',
+    'BBHI': 'KEUANGAN',
+    'BBRI': 'KEUANGAN',
+    'BBRM': 'ENERGI',
+    'BBSS': 'PROPERTI PERUMAHAN',
+    'BBYB': 'KEUANGAN',
+    'BCAP': 'KEUANGAN',
+    'BCIP': 'PROPERTI PERUMAHAN',
+    'BEER': 'BRG KONSUMER PRIMER',
+    'BELL': 'BRG KONSUMEN BUKAN PRIMER',
+    'BEST': 'PROPERTI PERUMAHAN',
+    'BGTG': 'KEUANGAN',
+    'BIMA': 'BRG KONSUMEN BUKAN PRIMER',
+    'BIPI': 'ENERGI',
+    'BKSW': 'KEUANGAN',
+    'BNII': 'KEUANGAN',
+    'BOAT': 'BARANG BAKU',
+    'BOBA': 'BRG KONSUMER PRIMER',
+    'BOLA': 'BRG KONSUMEN BUKAN PRIMER',
+    'BREN': 'INFRASTRUKTUR',
+    'BRIS': 'KEUANGAN',
+    'BRMS': 'BARANG BAKU',
+    'BRPT': 'BARANG BAKU',
+    'BRRC': 'BRG KONSUMER PRIMER',
+    'BSBK': 'PROPERTI PERUMAHAN',
+    'BUMI': 'ENERGI',
+    'BUVA': 'BRG KONSUMEN BUKAN PRIMER',
+    'BVIC': 'KEUANGAN',
+    'CAKK': 'PERINDUSTRIAN',
+    'CARS': 'BRG KONSUMEN BUKAN PRIMER',
+    'CBDK': 'PROPERTI PERUMAHAN',
+    'CENT': 'INFRASTRUKTUR',
+    'CGAS': 'ENERGI',
+    'CHEM': 'BARANG BAKU',
+    'CINT': 'BRG KONSUMEN BUKAN PRIMER',
+    'CITY': 'PROPERTI PERUMAHAN',
+    'COCO': 'BRG KONSUMER PRIMER',
+    'CRSN': 'PERINDUSTRIAN',
+    'CSIS': 'PROPERTI PERUMAHAN',
+    'CUAN': 'ENERGI',
+    'DAAZ': 'BARANG BAKU',
+    'DATA': 'INFRASTRUKTUR',
+    'DEWA': 'ENERGI',
+    'DEWI': 'BRG KONSUMER PRIMER',
+    'DFAM': 'BRG KONSUMEN BUKAN PRIMER',
+    'DGIK': 'INFRASTRUKTUR',
+    'DGNS': 'KESEHATAN',
+    'DIVA': 'TEKNOLOGI',
+    'DKFT': 'BARANG BAKU',
+    'DMMX': 'TEKNOLOGI',
+    'DNAR': 'KEUANGAN',
+    'DOOH': 'BRG KONSUMEN BUKAN PRIMER',
+    'DOSS': 'BRG KONSUMEN BUKAN PRIMER',
+    'DPUM': 'BRG KONSUMER PRIMER',
+    'DSFI': 'BRG KONSUMER PRIMER',
+    'DYAN': 'PERINDUSTRIAN',
+    'EAST': 'BRG KONSUMEN BUKAN PRIMER',
+    'ELIT': 'TEKNOLOGI',
+    'ELSA': 'ENERGI',
+    'EMTK': 'TEKNOLOGI',
+    'ENRG': 'ENERGI',
+    'ERTX': 'BRG KONSUMEN BUKAN PRIMER',
+    'ESSA': 'BARANG BAKU',
+    'ESTA': 'BRG KONSUMEN BUKAN PRIMER',
+    'ESTI': 'BARANG BAKU',
+    'EURO': 'BRG KONSUMER PRIMER',
+    'EXCL': 'INFRASTRUKTUR',
+    'FAST': 'BRG KONSUMER PRIMER',
+    'FILM': 'BRG KONSUMEN BUKAN PRIMER',
+    'FIRE': 'ENERGI',
+    'FITT': 'BRG KONSUMEN BUKAN PRIMER',
+    'FOLK': 'PERINDUSTRIAN',
+    'FORE': 'BRG KONSUMER PRIMER',
+    'FUJI': 'KEUANGAN',
+    'FUTR': 'BRG KONSUMEN BUKAN PRIMER',
+    'FWCT': 'BARANG BAKU',
+    'GEMA': 'BRG KONSUMEN BUKAN PRIMER',
+    'GJTL': 'BRG KONSUMEN BUKAN PRIMER',
+    'GOLF': 'BRG KONSUMEN BUKAN PRIMER',
+    'GOTO': 'TEKNOLOGI',
+    'GPSO': 'PERINDUSTRIAN',
+    'GRIA': 'PROPERTI PERUMAHAN',
+    'GSMF': 'KEUANGAN',
+    'GTBO': 'ENERGI',
+    'GTRA': 'TRANSPORTASI LOGISTIK',
+    'GTSI': 'ENERGI',
+    'GULA': 'BRG KONSUMER PRIMER',
+    'GZCO': 'BRG KONSUMER PRIMER',
+    'HAIS': 'TRANSPORTASI LOGISTIK',
+    'HAJJ': 'BRG KONSUMEN BUKAN PRIMER',
+    'HALO': 'KESEHATAN',
+    'HDFA': 'KEUANGAN',
+    'HDIT': 'TEKNOLOGI',
+    'HELI': 'TRANSPORTASI LOGISTIK',
+    'HOKI': 'BRG KONSUMER PRIMER',
+    'HRTA': 'BRG KONSUMEN BUKAN PRIMER',
+    'HUMI': 'ENERGI',
+    'IATA': 'ENERGI',
+    'ICON': 'PERINDUSTRIAN',
+    'INDX': 'PERINDUSTRIAN',
+    'INDY': 'ENERGI',
+    'INET': 'INFRASTRUKTUR',
+    'INKP': 'BARANG BAKU',
+    'INOV': 'BRG KONSUMEN BUKAN PRIMER',
+    'INPC': 'KEUANGAN',
+    'IOTF': 'TEKNOLOGI',
+    'IRRA': 'KESEHATAN',
+    'ISEA': 'BRG KONSUMER PRIMER',
+    'ITMA': 'BARANG BAKU',
+    'JARR': 'BRG KONSUMER PRIMER',
+    'JAST': 'INFRASTRUKTUR',
+    'JATI': 'TEKNOLOGI',
+    'JAWA': 'BRG KONSUMER PRIMER',
+    'JAYA': 'TRANSPORTASI LOGISTIK',
+    'JKON': 'INFRASTRUKTUR',
+    'JMAS': 'KEUANGAN',
+    'KAEF': 'KESEHATAN',
+    'KAQI': 'BRG KONSUMEN BUKAN PRIMER',
+    'KBLV': 'INFRASTRUKTUR',
+    'KICI': 'BRG KONSUMEN BUKAN PRIMER',
+    'KIOS': 'TEKNOLOGI',
+    'KJEN': 'TRANSPORTASI LOGISTIK',
+    'KKES': 'BARANG BAKU',
+    'KLAS': 'TRANSPORTASI LOGISTIK',
+    'KOCI': 'PROPERTI PERUMAHAN',
+    'KOKA': 'INFRASTRUKTUR',
+    'KPIG': 'BRG KONSUMEN BUKAN PRIMER',
+    'KRAS': 'BARANG BAKU',
+    'KRYA': 'INFRASTRUKTUR',
+    'KSIX': 'PROPERTI PERUMAHAN',
+    'KUAS': 'PERINDUSTRIAN',
+    'LABA': 'PERINDUSTRIAN',
+    'LAJU': 'TRANSPORTASI LOGISTIK',
+    'LEAD': 'ENERGI',
+    'LIVE': 'BRG KONSUMEN BUKAN PRIMER',
+    'LPKR': 'PROPERTI PERUMAHAN',
+    'LPPS': 'KEUANGAN',
+    'LUCK': 'TEKNOLOGI',
+    'MAPI': 'BRG KONSUMEN BUKAN PRIMER',
+    'MAXI': 'BRG KONSUMER PRIMER',
+    'MAYA': 'KEUANGAN',
+    'MBMA': 'BARANG BAKU',
+    'MBSS': 'ENERGI',
+    'MBTO': 'BRG KONSUMER PRIMER',
+    'MCOR': 'KEUANGAN',
+    'MDKA': 'BARANG BAKU',
+    'MDLA': 'KESEHATAN',
+    'MDLN': 'PROPERTI PERUMAHAN',
+    'MEDC': 'ENERGI',
+    'MEDS': 'KESEHATAN',
+    'MERI': 'BRG KONSUMEN BUKAN PRIMER',
+    'MITI': 'ENERGI',
+    'MKTR': 'BRG KONSUMER PRIMER',
+    'MMIX': 'KESEHATAN',
+    'MOLI': 'BARANG BAKU',
+    'MPIX': 'TEKNOLOGI',
+    'MPOW': 'INFRASTRUKTUR',
+    'MPXL': 'TRANSPORTASI LOGISTIK',
+    'MSIE': 'PROPERTI PERUMAHAN',
+    'MSIN': 'BRG KONSUMEN BUKAN PRIMER',
+    'MSKY': 'BRG KONSUMEN BUKAN PRIMER',
+    'MTWI': 'KEUANGAN',
+    'MUTU': 'PERINDUSTRIAN',
+    'NASI': 'BRG KONSUMER PRIMER',
+    'NCKL': 'BARANG BAKU',
+    'NEST': 'BRG KONSUMER PRIMER',
+    'NETV': 'BRG KONSUMEN BUKAN PRIMER',
+    'NICE': 'BARANG BAKU',
+    'NICL': 'BARANG BAKU',
+    'NIKL': 'BARANG BAKU',
+    'NOBU': 'KEUANGAN',
+    'NTBK': 'PERINDUSTRIAN',
+    'NZIA': 'PROPERTI PERUMAHAN',
+    'OASA': 'INFRASTRUKTUR',
+    'OBMD': 'BARANG BAKU',
+    'OILS': 'BRG KONSUMER PRIMER',
+    'OKAS': 'BARANG BAKU',
+    'OPMS': 'BARANG BAKU',
+    'PAMG': 'PROPERTI PERUMAHAN',
+    'PANI': 'BRG KONSUMER PRIMER',
+    'PART': 'BRG KONSUMEN BUKAN PRIMER',
+    'PGEO': 'INFRASTRUKTUR',
+    'PICO': 'BARANG BAKU',
+    'PMJS': 'BRG KONSUMEN BUKAN PRIMER',
+    'PNBS': 'KEUANGAN',
+    'PPRI': 'BARANG BAKU',
+    'PRIM': 'KESEHATAN',
+    'PSAB': 'BARANG BAKU',
+    'PSDN': 'BRG KONSUMER PRIMER',
+    'PTMP': 'PERINDUSTRIAN',
+    'PTPS': 'BRG KONSUMER PRIMER',
+    'PTRO': 'ENERGI',
+    'PURI': 'PROPERTI PERUMAHAN',
+    'RAAM': 'BRG KONSUMEN BUKAN PRIMER',
+    'RAJA': 'ENERGI',
+    'RATU': 'ENERGI',
+    'RBMS': 'PROPERTI PERUMAHAN',
+    'RCCC': 'TRANSPORTASI LOGISTIK',
+    'RGAS': 'BARANG BAKU',
+    'RICY': 'BRG KONSUMEN BUKAN PRIMER',
+    'RMKE': 'ENERGI',
+    'RMKO': 'BARANG BAKU',
+    'RUIS': 'BARANG BAKU',
+    'SAME': 'KESEHATAN',
+    'SEMA': 'BARANG BAKU',
+    'SGER': 'ENERGI',
+    'SICO': 'BARANG BAKU',
+    'SLIS': 'BRG KONSUMEN BUKAN PRIMER',
+    'SMBR': 'BARANG BAKU',
+    'SMDR': 'TRANSPORTASI LOGISTIK',
+    'SMGA': 'BARANG BAKU',
+    'SMIL': 'PERINDUSTRIAN',
+    'SMLE': 'BARANG BAKU',
+    'SMMT': 'ENERGI',
+    'SOCI': 'ENERGI',
+    'SOLA': 'BARANG BAKU',
+    'SQMI': 'BARANG BAKU',
+    'SRSN': 'BARANG BAKU',
+    'SSIA': 'INFRASTRUKTUR',
+    'SULI': 'BARANG BAKU',
+    'SURI': 'KESEHATAN',
+    'TAYS': 'BRG KONSUMER PRIMER',
+    'TGUK': 'BRG KONSUMER PRIMER',
+    'TINS': 'BARANG BAKU',
+    'TMAS': 'TRANSPORTASI LOGISTIK',
+    'TMPO': 'BRG KONSUMEN BUKAN PRIMER',
+    'TNCA': 'TRANSPORTASI LOGISTIK',
+    'TOBA': 'ENERGI',
+    'TOOL': 'BRG KONSUMEN BUKAN PRIMER',
+    'TOSK': 'TEKNOLOGI',
+    'TRIN': 'PROPERTI PERUMAHAN',
+    'TRIS': 'BRG KONSUMEN BUKAN PRIMER',
+    'TRJA': 'TRANSPORTASI LOGISTIK',
+    'TRUK': 'TRANSPORTASI LOGISTIK',
+    'UFOE': 'BRG KONSUMEN BUKAN PRIMER',
+    'UVCR': 'TEKNOLOGI',
+    'VICO': 'KEUANGAN',
+    'VKTR': 'BRG KONSUMEN BUKAN PRIMER',
+    'VTNY': 'KEUANGAN',
+    'WAPO': 'BRG KONSUMER PRIMER',
+    'WEGE': 'INFRASTRUKTUR',
+    'WIFI': 'TEKNOLOGI',
+    'WIRG': 'TEKNOLOGI',
+    'WOWS': 'ENERGI',
+    'WTON': 'BARANG BAKU',
+    'ZATA': 'BRG KONSUMEN BUKAN PRIMER',
+    'ZBRA': 'PERINDUSTRIAN',
+    'ZYRX': 'TEKNOLOGI',
+}
+
 VAL_MIN = 800_000_000
 VAL_MAX = 5_000_000_000
 
@@ -733,6 +1020,38 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
             results.append(best)
     results.sort(key=lambda x: (-int(x['in_wl']), x['vol_ratio_pct'], -x['score']))
     return results[:75]
+
+
+def scan_sector_rotation(all_ohlcv, target, chg_threshold=8.0, min_movers=2):
+    """Deteksi sektor yang lagi 'panas' — 2+ saham di sektor sama naik >=threshold%
+    (default 8%) hari ini. Return dict {sektor: {'movers':[...], 'watchlist':[...]}}.
+    'movers' = saham yg SUDAH naik hari ini, 'watchlist' = saham LAIN di sektor
+    yg sama yg BELUM naik (kandidat susulan)."""
+    sector_stocks = {}
+    for code, sektor in SEKTOR_MAP.items():
+        if code not in ALL_WL: continue
+        sector_stocks.setdefault(sektor, []).append(code)
+
+    results = {}
+    for sektor, codes in sector_stocks.items():
+        movers = []
+        watch = []
+        for code in codes:
+            bars = all_ohlcv.get(code, [])
+            if not bars or bars[-1]['date'] != target: continue
+            b = bars[-1]
+            if not b.get('P') or b['P'] <= 0: continue
+            chg = (b['C'] - b['P']) / b['P'] * 100
+            entry = {'code': code, 'chg': round(chg, 2), 'close': int(b['C'])}
+            if chg >= chg_threshold:
+                movers.append(entry)
+            else:
+                watch.append(entry)
+        if len(movers) >= min_movers:
+            movers.sort(key=lambda x: -x['chg'])
+            watch.sort(key=lambda x: -x['chg'])
+            results[sektor] = {'movers': movers, 'watchlist': watch}
+    return results
 
 
 def scan_bersih2(all_ohlcv, avg_vols, target, chg_min=3.0, chg_max=9.0,
@@ -1643,6 +1962,8 @@ def main():
             st.caption("📁 Membaca dari folder `data/` di GitHub")
         st.divider()
         show_only_wl = st.toggle("★ Hanya WL", value=True)
+        _sektor_options = ["Semua Sektor"] + sorted(set(SEKTOR_MAP.values()))
+        selected_sektor = st.selectbox("🏭 Filter Sektor:", _sektor_options, key='sektor_filter')
         st.divider()
         # Miracle Cuan — sekarang jadi tab di dalam app (lihat tab "🌟 Miracle Cuan")
         if st.session_state.get('miracle_data'):
@@ -1747,14 +2068,14 @@ def main():
         # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
         # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
         # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
-        _SCAN_CACHE_VERSION = 3
+        _SCAN_CACHE_VERSION = 4
         _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
         _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
                      and '_scan_pipeline_cache' in st.session_state)
         if _cache_ok:
             _required_keys = {'boa_full','boa_near','p1_list','p3_list','ol_list','sv_list',
                                'alert_list','clean','sp_list','bos_list','boh_list','div_list',
-                               'ttx_list','ara_list','bersih2_list','auto_sp'}
+                               'ttx_list','ara_list','bersih2_list','sektor_rotation','auto_sp'}
             if not _required_keys.issubset(st.session_state['_scan_pipeline_cache'].keys()):
                 _cache_ok = False
         if not _cache_ok:
@@ -1774,6 +2095,7 @@ def main():
             _sp_cache['ttx_list']  = scan_ttx(all_ohlcv, avg_vols, target)
             _sp_cache['ara_list']  = scan_ara(all_ohlcv, avg_vols, target)
             _sp_cache['bersih2_list'] = scan_bersih2(all_ohlcv, avg_vols, target)
+            _sp_cache['sektor_rotation'] = scan_sector_rotation(all_ohlcv, target)
             _sp_cache['auto_sp']   = auto_stockpick(_sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['p1_list'],
                                     _sp_cache['p3_list'], _sp_cache['ol_list'], _sp_cache['sv_list'], _sp_cache['alert_list'],
                                     _sp_cache['sp_list'], _sp_cache['bos_list'], _sp_cache['boh_list'], _sp_cache['ttx_list'],
@@ -1789,6 +2111,7 @@ def main():
         boh_list   = _sp_cache['boh_list'];   div_list = _sp_cache['div_list']
         ttx_list   = _sp_cache['ttx_list'];   auto_sp  = _sp_cache['auto_sp']
         ara_list   = _sp_cache['ara_list'];   bersih2_list = _sp_cache['bersih2_list']
+        sektor_rotation = _sp_cache['sektor_rotation']
 
         # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
         # Trading Log ke-2: otomatis, tanpa perlu klik Simpan manual di kalkulator.
@@ -1889,6 +2212,63 @@ def main():
                     json={"action": "bulk_update_tpsl", "sheet": "New30 Log", "date": target, "updates": _updates},
                     timeout=15
                 )
+            except Exception:
+                pass
+
+        # ── Auto-log Rotasi Sektor: kalau ada sektor "panas" hari ini (2+ saham
+        # naik ≥8%), simpan saham LAIN di sektor sama (yg belum naik) sbg watchlist.
+        # HANYA dari data closing (sama seperti StockPick/New30 Log).
+        if _is_closing_snapshot and sektor_rotation:
+            try:
+                import requests as _requests_sek
+                _sek_entries = []
+                for _sektor, _info in sektor_rotation.items():
+                    _pemicu_str = ', '.join(f"{m['code']}(+{m['chg']}%)" for m in _info['movers'])
+                    for _w in _info['watchlist']:
+                        _sek_entries.append({
+                            "tanggal_deteksi": target, "sektor": _sektor,
+                            "saham_pemicu": _pemicu_str, "kode_watchlist": _w['code'],
+                            "close_saat_deteksi": _w['close'],
+                        })
+                if _sek_entries:
+                    _sek_fingerprint = _hashlib.md5(
+                        str(sorted((e['sektor'], e['kode_watchlist']) for e in _sek_entries)).encode()
+                    ).hexdigest()[:12]
+                    _sek_log_key = f"sektor_log_sent_{target}_{_sek_fingerprint}"
+                    if not st.session_state.get(_sek_log_key):
+                        _resp_sek = _requests_sek.post(
+                            "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                            json={"action": "bulk_add_sektor_watch", "entries": _sek_entries},
+                            timeout=20
+                        )
+                        st.session_state["sektor_log_last_result"] = (
+                            f"✅ Sektor Rotasi Log {target}: {_resp_sek.json().get('result',{})}" if _resp_sek.ok
+                            else f"⚠️ Sektor Rotasi Log gagal (HTTP {_resp_sek.status_code})"
+                        )
+                        st.session_state[_sek_log_key] = True
+            except Exception as _e_sek:
+                st.session_state["sektor_log_last_result"] = f"⚠️ Sektor Rotasi Log gagal: {_e_sek}"
+
+        # ── Auto-update status watchlist Sektor Rotasi: cek Chg% hari ini utk
+        # tiap kode yg lagi "Watching", tandai "Sudah Naik" kalau >=8% ──
+        if _updates:
+            try:
+                import requests as _requests_sek2
+                _sek_chg_updates = []
+                for _u in _updates:
+                    _bars_u = all_ohlcv.get(_u['code'], [])
+                    if not _bars_u or _bars_u[-1]['date'] != target: continue
+                    _b_today = _bars_u[-1]
+                    if not _b_today.get('P') or _b_today['P'] <= 0: continue
+                    _chg_u = (_b_today['C'] - _b_today['P']) / _b_today['P'] * 100
+                    _sek_chg_updates.append({"code": _u['code'], "chg_pct": round(_chg_u, 2)})
+                if _sek_chg_updates:
+                    _resp_sek3 = _requests_sek2.post(
+                        "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                        json={"action": "bulk_update_sektor_watch", "date": target, "updates": _sek_chg_updates,
+                              "threshold": 8.0, "max_hold_days": 10},
+                        timeout=15
+                    )
             except Exception:
                 pass
 
@@ -2152,7 +2532,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA"]
+    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -3171,6 +3551,7 @@ def main():
                         )
                     _tbl = (
                         '<table style="width:100%;border-collapse:collapse">'
+                        '<colgroup><col style="width:170px"><col style="width:70px"></colgroup>'
                         '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tanggal</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Code</th>'
@@ -3245,6 +3626,7 @@ def main():
                         )
                     _tbl2 = (
                         '<table style="width:100%;border-collapse:collapse">'
+                        '<colgroup><col style="width:85px"><col style="width:85px"><col style="width:70px"></colgroup>'
                         '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Entry</th>'
                         '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Close</th>'
@@ -3455,6 +3837,121 @@ def main():
         render_trading_log_section("📊 Statistik New30 Log (Otomatis)", "New30 Log", "n30_stats_cache")
         if st.session_state.get("n30_log_last_result"):
             st.caption(st.session_state["n30_log_last_result"])
+
+    # Tab Sektor Rotasi — deteksi 2+ saham di sektor sama naik ≥8% hari ini,
+    # lalu pantau saham LAIN di sektor sama yang belum naik (kandidat susulan).
+    with tabs[18]:
+        st.markdown("### 🏭 Rotasi Sektor")
+        st.caption("Deteksi: 2+ saham di sektor sama naik ≥8% hari ini → saham lain di sektor itu yang belum naik masuk watchlist, dipantau otomatis sampai 10 hari bursa.")
+
+        if sektor_rotation:
+            st.success(f"🔥 {len(sektor_rotation)} sektor lagi panas hari ini!")
+            for sektor, info in sektor_rotation.items():
+                with st.expander(f"**{sektor}** — {len(info['movers'])} saham naik ≥8%, {len(info['watchlist'])} kandidat susulan", expanded=True):
+                    st.markdown("**Sudah naik:**")
+                    mv_html = ''.join([
+                        f'<span style="background:#DCFCE7;color:#166534;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;margin-right:4px">{m["code"]} +{m["chg"]}%</span>'
+                        for m in info['movers']
+                    ])
+                    st.html(mv_html)
+                    st.markdown("**Kandidat susulan (belum naik):**")
+                    wl_html = ''.join([
+                        f'<span style="background:#F1F5F9;color:#334155;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;margin-right:4px;margin-bottom:4px;display:inline-block">{w["code"]} {w["chg"]:+.1f}%</span>'
+                        for w in info['watchlist']
+                    ])
+                    st.html(wl_html)
+        else:
+            st.info("Tidak ada sektor yang 'panas' (2+ saham naik ≥8%) hari ini.")
+
+        if st.session_state.get("sektor_log_last_result"):
+            st.caption(st.session_state["sektor_log_last_result"])
+
+        st.divider()
+        st.markdown("**📋 Watchlist Susulan (dari histori, tracked otomatis)**")
+        col_sek1, col_sek2 = st.columns([1, 5])
+        if col_sek1.button("🔄 Refresh", key="refresh_sektor_watch"):
+            st.session_state.pop("sektor_watch_cache", None)
+        if "sektor_watch_cache" not in st.session_state:
+            try:
+                import requests as _requests_sekget
+                _resp_sekget = _requests_sekget.get(
+                    "https://script.google.com/macros/s/AKfycbyz0DcMbs7VGhkinpxt0D-vnNG6WOkywzIMOMLciQpcNeN-6C4aaTaTwTRC_Rto56Ym/exec",
+                    params={'action': 'get_sektor_watch'}, timeout=15
+                )
+                st.session_state["sektor_watch_cache"] = _resp_sekget.json() if _resp_sekget.ok else {'status': 'error', 'message': f'HTTP {_resp_sekget.status_code}'}
+            except Exception as _e_sekget:
+                st.session_state["sektor_watch_cache"] = {'status': 'error', 'message': str(_e_sekget)}
+
+        _sekwatch_data = st.session_state.get("sektor_watch_cache", {})
+        if _sekwatch_data.get('status') == 'ok':
+            _sek_entries = _sekwatch_data.get('entries', [])
+            _watching = [e for e in _sek_entries if e.get('status') == 'Watching']
+            _sudah_naik = [e for e in _sek_entries if e.get('status') == 'Sudah Naik']
+            _kadaluarsa = [e for e in _sek_entries if e.get('status') == 'Kadaluarsa']
+
+            mcs1, mcs2, mcs3 = st.columns(3)
+            mcs1.metric("⏳ Watching", len(_watching))
+            mcs2.metric("✅ Sudah Naik", len(_sudah_naik))
+            mcs3.metric("⌛ Kadaluarsa", len(_kadaluarsa))
+
+            if _watching:
+                st.markdown(f"**{len(_watching)} sedang dipantau**")
+                _watching_sorted = sorted(_watching, key=lambda e: str(e.get('tanggal_deteksi', '')), reverse=True)
+                _rows_sek = []
+                for e in _watching_sorted:
+                    _rows_sek.append(
+                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                        f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal_deteksi","")}</td>'
+                        f'<td style="padding:6px 8px;font-size:12px">{e.get("sektor","")}</td>'
+                        f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("kode_watchlist","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px">{e.get("close_saat_deteksi","")}</td>'
+                        f'<td style="padding:6px 8px;font-size:11px;color:#888">{e.get("saham_pemicu","")}</td>'
+                        '</tr>'
+                    )
+                _tbl_sek = (
+                    '<table style="width:100%;border-collapse:collapse">'
+                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Deteksi</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Sektor</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Kode</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Close Saat Deteksi</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Saham Pemicu</th>'
+                    '</tr></thead><tbody>' + ''.join(_rows_sek) + '</tbody></table>'
+                )
+                st.html(_tbl_sek)
+
+            if _sudah_naik:
+                st.markdown(f"**{len(_sudah_naik)} sudah menyusul naik**")
+                _sn_sorted = sorted(_sudah_naik, key=lambda e: str(e.get('tanggal_naik', '')), reverse=True)
+                _rows_sn = []
+                for e in _sn_sorted:
+                    _rows_sn.append(
+                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.15)">'
+                        f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal_deteksi","")}</td>'
+                        f'<td style="padding:6px 8px;font-size:12px">{e.get("sektor","")}</td>'
+                        f'<td style="padding:6px 8px;font-weight:600;font-size:13px">{e.get("kode_watchlist","")}</td>'
+                        f'<td style="padding:6px 8px;font-size:12px">{e.get("tanggal_naik","")}</td>'
+                        f'<td style="padding:6px 8px;text-align:right;font-size:12px;color:#4ade80;font-weight:600">+{e.get("chg_saat_naik","")}%</td>'
+                        f'<td style="padding:6px 8px;text-align:center;font-size:12px">{e.get("hari_ke","")}</td>'
+                        '</tr>'
+                    )
+                _tbl_sn = (
+                    '<table style="width:100%;border-collapse:collapse">'
+                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.3)">'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Deteksi</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Sektor</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Kode</th>'
+                    '<th style="padding:6px 8px;text-align:left;font-size:11px;color:#888">Tgl Naik</th>'
+                    '<th style="padding:6px 8px;text-align:right;font-size:11px;color:#888">Chg%</th>'
+                    '<th style="padding:6px 8px;text-align:center;font-size:11px;color:#888">Hari ke-</th>'
+                    '</tr></thead><tbody>' + ''.join(_rows_sn) + '</tbody></table>'
+                )
+                st.html(_tbl_sn)
+
+            if not _sek_entries:
+                st.info("Belum ada data watchlist rotasi sektor. Setup dulu tab Sheet-nya (jalankan setupSektorRotasiSheet() di Apps Script).")
+        else:
+            st.caption(f"⚠️ Gagal ambil data watchlist: {_sekwatch_data.get('message', 'unknown error')}")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
