@@ -1022,6 +1022,60 @@ def scan_divergen(all_ohlcv, avg_vols, target, window_sizes=(8, 10, 15, 20),
     return results[:75]
 
 
+_BULAN_ID = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus',
+             'September','Oktober','November','Desember']
+
+
+def build_high_spike_recap(all_ohlcv, threshold=8.0):
+    """Rekap SEMUA kejadian historis: saham (watchlist, sektor diketahui) yang
+    High-nya (vs Prev) >= threshold% di hari itu, plus sektornya. Dasar buat
+    resume mingguan sektor mana yang 'ditarik'."""
+    records = []
+    for code, bars in all_ohlcv.items():
+        if code not in ALL_WL: continue
+        sektor = SEKTOR_MAP.get(code)
+        if not sektor: continue  # skip saham yg sektornya belum ke-cover
+        for b in bars:
+            if not b.get('P') or b['P'] <= 0 or not b.get('H'): continue
+            hvp = (b['H'] - b['P']) / b['P'] * 100
+            if hvp >= threshold:
+                dt = datetime.strptime(b['date'], '%Y-%m-%d')
+                week_n = (dt.day - 1) // 7 + 1
+                records.append({
+                    'date': b['date'], 'code': code, 'sektor': sektor,
+                    'hvp': round(hvp, 2),
+                    'close_chg': round((b['C']-b['P'])/b['P']*100, 2) if b.get('C') else 0,
+                    'bulan': _BULAN_ID[dt.month], 'tahun': dt.year, 'week': week_n,
+                })
+    records.sort(key=lambda x: x['date'], reverse=True)
+    return records
+
+
+def build_weekly_sector_resume(records):
+    """Ringkas per (tahun,bulan,minggu): sektor mana yang paling banyak saham
+    uniknya kena spike High>=threshold% (sektor 'dominan' minggu itu)."""
+    grouped = {}
+    for r in records:
+        key = (r['tahun'], r['bulan'], r['week'])
+        grouped.setdefault(key, {}).setdefault(r['sektor'], set()).add(r['code'])
+
+    resume = []
+    for (tahun, bulan, week), sektor_dict in grouped.items():
+        dominant = max(sektor_dict.items(), key=lambda kv: len(kv[1]))
+        total_unique = len(set().union(*sektor_dict.values()))
+        resume.append({
+            'Periode': f"{bulan} {tahun} — Minggu {week}",
+            'Sektor Dominan': dominant[0],
+            'Jml Saham (Dominan)': len(dominant[1]),
+            'Saham Dominan': ', '.join(sorted(dominant[1])),
+            'Total Saham Unik (semua sektor)': total_unique,
+            '_sort': (tahun, _BULAN_ID.index(bulan), week),
+        })
+    resume.sort(key=lambda x: x['_sort'], reverse=True)
+    for r in resume: del r['_sort']
+    return resume
+
+
 def scan_sector_rotation(all_ohlcv, target, chg_threshold=8.0, min_movers=2):
     """Deteksi sektor yang lagi 'panas' — 2+ saham di sektor sama naik >=threshold%
     (default 8%) hari ini. Return dict {sektor: {'movers':[...], 'watchlist':[...]}}.
@@ -3865,6 +3919,33 @@ def main():
 
         if st.session_state.get("sektor_log_last_result"):
             st.caption(st.session_state["sektor_log_last_result"])
+
+        st.divider()
+        st.markdown("**📊 Rekap Historis — Saham High ≥8% + Sektor**")
+        st.caption("Semua kejadian historis (bukan cuma hari ini): saham yang High-nya (vs Prev) pernah tembus ≥8%, beserta sektornya. Dipakai juga buat resume mingguan sektor mana yang paling 'ditarik'.")
+
+        if st.button("🔍 Hitung Rekap Historis", key='btn_sektor_recap'):
+            with st.spinner("Menghitung rekap historis semua saham (bisa agak lama)..."):
+                st.session_state['sektor_recap_cache'] = build_high_spike_recap(all_ohlcv, threshold=8.0)
+
+        recap_records = st.session_state.get('sektor_recap_cache')
+        if recap_records is not None:
+            if recap_records:
+                weekly_resume = build_weekly_sector_resume(recap_records)
+                st.markdown(f"**📅 Resume Mingguan ({len(weekly_resume)} minggu)**")
+                st.dataframe(pd.DataFrame(weekly_resume), use_container_width=True, hide_index=True, height=300)
+
+                st.markdown(f"**📋 Rekap Lengkap ({len(recap_records)} kejadian)**")
+                sektor_pilihan = st.selectbox(
+                    "Filter sektor:", ["Semua"] + sorted(set(r['sektor'] for r in recap_records)),
+                    key='sektor_recap_filter'
+                )
+                recap_display = recap_records if sektor_pilihan == "Semua" else [r for r in recap_records if r['sektor'] == sektor_pilihan]
+                df_recap = pd.DataFrame(recap_display)[['date','code','sektor','hvp','close_chg']]
+                df_recap.columns = ['Tanggal','Code','Sektor','High/Prev%','Close/Prev%']
+                st.dataframe(df_recap, use_container_width=True, hide_index=True, height=400)
+            else:
+                st.info("Tidak ada kejadian High≥8% pada data yang ada.")
 
         st.divider()
         st.markdown("**📋 Watchlist Susulan (dari histori, tracked otomatis)**")
