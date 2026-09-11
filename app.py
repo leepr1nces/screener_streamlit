@@ -1076,6 +1076,50 @@ def build_weekly_sector_resume(records):
     return resume
 
 
+def scan_above_ma20_spike(all_ohlcv, target, lookback_days=15, spike_threshold=8.0, vol_dry_ratio=7.0):
+    """Saham yang SAAT INI di atas MA20, dan dalam 15 hari terakhir pernah ada
+    hari Close naik >=8%. Badge 'Entry' kalau volume hari ini udah kering
+    banget — <=7% dari volume di hari spike >=8% tsb (perbandingan pakai
+    hari spike dengan volume terbesar kalau ada beberapa)."""
+    results = []
+    for code, bars in all_ohlcv.items():
+        if not bars or bars[-1]['date'] != target: continue
+        in_wl = code in ALL_WL
+        if len(bars) < 20: continue
+
+        today = bars[-1]
+        ma20_window = [b['C'] for b in bars[-20:] if b.get('C')]
+        if len(ma20_window) < 20: continue
+        ma20 = sum(ma20_window) / len(ma20_window)
+        if not today.get('C') or today['C'] <= ma20: continue  # WAJIB di atas MA20
+
+        window = bars[-lookback_days:]
+        spike_days = []
+        for b in window:
+            if b.get('P') and b['P'] > 0 and b.get('C'):
+                c = (b['C'] - b['P']) / b['P'] * 100
+                if c >= spike_threshold:
+                    spike_days.append(b)
+        if not spike_days: continue
+
+        best_spike = max(spike_days, key=lambda b: b.get('V', 0))
+        vol_spike = best_spike.get('V', 0)
+        vol_today = today.get('V', 0)
+        if vol_spike <= 0: continue
+        vol_ratio_pct = vol_today / vol_spike * 100
+        is_entry = vol_ratio_pct <= vol_dry_ratio
+
+        chg0 = (today['C'] - today['P']) / today['P'] * 100 if today.get('P') and today['P'] > 0 else 0
+        results.append({
+            'code': code, 'in_wl': in_wl, 'close': int(today['C']), 'chg': round(chg0, 2),
+            'ma20': round(ma20), 'spike_date': best_spike['date'][5:],
+            'spike_chg': round((best_spike['C'] - best_spike['P']) / best_spike['P'] * 100, 1),
+            'vol_ratio_pct': round(vol_ratio_pct, 1), 'is_entry': is_entry,
+        })
+    results.sort(key=lambda x: (-int(x['is_entry']), -int(x['in_wl']), x['vol_ratio_pct']))
+    return results
+
+
 def scan_spike_today(all_ohlcv, target, spike_threshold=5.0, lookback_days=7):
     """Saham yang spike hari ini (High/Prev >=5%), TAPI 7 hari sebelumnya (tidak
     termasuk hari ini) belum pernah spike >=5% sekalipun (High/Prev) — biar
@@ -2153,14 +2197,15 @@ def main():
         # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
         # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
         # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
-        _SCAN_CACHE_VERSION = 5
+        _SCAN_CACHE_VERSION = 6
         _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
         _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
                      and '_scan_pipeline_cache' in st.session_state)
         if _cache_ok:
             _required_keys = {'boa_full','boa_near','p1_list','p3_list','ol_list','sv_list',
                                'alert_list','clean','sp_list','bos_list','boh_list','div_list',
-                               'ttx_list','ara_list','bersih2_list','sektor_rotation','spike_today_list','auto_sp'}
+                               'ttx_list','ara_list','bersih2_list','sektor_rotation','spike_today_list',
+                               'ma20_spike_list','auto_sp'}
             if not _required_keys.issubset(st.session_state['_scan_pipeline_cache'].keys()):
                 _cache_ok = False
         if not _cache_ok:
@@ -2182,6 +2227,7 @@ def main():
             _sp_cache['bersih2_list'] = scan_bersih2(all_ohlcv, avg_vols, target)
             _sp_cache['sektor_rotation'] = scan_sector_rotation(all_ohlcv, target)
             _sp_cache['spike_today_list'] = scan_spike_today(all_ohlcv, target)
+            _sp_cache['ma20_spike_list'] = scan_above_ma20_spike(all_ohlcv, target)
             _sp_cache['auto_sp']   = auto_stockpick(_sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['p1_list'],
                                     _sp_cache['p3_list'], _sp_cache['ol_list'], _sp_cache['sv_list'], _sp_cache['alert_list'],
                                     _sp_cache['sp_list'], _sp_cache['bos_list'], _sp_cache['boh_list'], _sp_cache['ttx_list'],
@@ -2199,6 +2245,7 @@ def main():
         ara_list   = _sp_cache['ara_list'];   bersih2_list = _sp_cache['bersih2_list']
         sektor_rotation = _sp_cache['sektor_rotation']
         spike_today_list = _sp_cache['spike_today_list']
+        ma20_spike_list = _sp_cache['ma20_spike_list']
 
 
         # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
@@ -2620,7 +2667,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi"]
+    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi","📈 Above MA20"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -4100,6 +4147,48 @@ def main():
                 '</tr></thead><tbody>' + ''.join(spike_rows_html) + '</tbody></table>'
             )
             st.html(spike_tbl_html)
+        else:
+            st.info("Tidak ada saham dengan pola ini hari ini.")
+
+    # Tab Above MA20 — saat ini di atas MA20, pernah spike Close>=8% dlm 15H,
+    # badge Entry kalau volume hari ini sudah kering (<=7% vol saat spike)
+    with tabs[20]:
+        lst_ma20 = [r for r in ma20_spike_list if r['in_wl']] if show_only_wl else ma20_spike_list
+        n_entry = len([r for r in ma20_spike_list if r['in_wl'] and r['is_entry']])
+        st.markdown(f"**📈 Above MA20 + Pernah Spike ≥8% (15H) | WL: {len([r for r in ma20_spike_list if r['in_wl']])} | 🚨 Entry: {n_entry}**")
+        st.caption("Kriteria: Close hari ini di atas MA20, DAN dalam 15 hari terakhir pernah ada Close naik ≥8%. Badge Entry: volume hari ini ≤7% dari volume di hari spike itu (sangat kering).")
+        if lst_ma20:
+            ma20_rows_html = []
+            for r in lst_ma20:
+                sc = '+' if r['chg'] > 0 else ''
+                cc = '#4ade80' if r['chg'] > 0 else ('#f87171' if r['chg'] < 0 else '#888')
+                entry_badge = '<span style="background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">🚨 Entry</span>' if r['is_entry'] else ''
+                ma20_rows_html.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                    '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
+                    '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(r['chg']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + str(r['ma20']) + '</td>'
+                    '<td style="padding:7px 10px;font-size:11px;color:#888">' + r['spike_date'] + ' (+' + str(r['spike_chg']) + '%)</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px">' + str(r['vol_ratio_pct']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + entry_badge + '</td>'
+                    '</tr>'
+                )
+            ma20_tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                '<th style="padding:7px 10px;color:#666;font-weight:400;font-size:11px;width:24px">★</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">MA20</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Tgl Spike</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Vol vs Spike</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Status</th>'
+                '</tr></thead><tbody>' + ''.join(ma20_rows_html) + '</tbody></table>'
+            )
+            st.html(ma20_tbl_html)
         else:
             st.info("Tidak ada saham dengan pola ini hari ini.")
 
