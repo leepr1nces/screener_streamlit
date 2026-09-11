@@ -1076,6 +1076,37 @@ def build_weekly_sector_resume(records):
     return resume
 
 
+def scan_spike_today(all_ohlcv, target, spike_threshold=5.0, lookback_days=7):
+    """Saham yang spike hari ini (High/Prev >=5%), TAPI 7 hari sebelumnya (tidak
+    termasuk hari ini) belum pernah spike >=5% sekalipun (High/Prev) — biar
+    cuma nangkep spike yang genuinely BARU, bukan lanjutan spike yang udah
+    beberapa hari."""
+    results = []
+    for code, bars in all_ohlcv.items():
+        if not bars or bars[-1]['date'] != target: continue
+        in_wl = code in ALL_WL
+        today = bars[-1]
+        if not today.get('P') or today['P'] <= 0 or not today.get('H'): continue
+        hvp0 = (today['H'] - today['P']) / today['P'] * 100
+        if hvp0 < spike_threshold: continue
+
+        window = bars[-(lookback_days + 1):-1]  # 7 hari SEBELUM hari ini
+        already_spiked = False
+        for b in window:
+            if b.get('P') and b['P'] > 0 and b.get('H'):
+                hvp_b = (b['H'] - b['P']) / b['P'] * 100
+                if hvp_b >= spike_threshold:
+                    already_spiked = True
+                    break
+        if already_spiked: continue
+
+        chg0 = (today['C'] - today['P']) / today['P'] * 100 if today.get('C') else 0
+        results.append({'code': code, 'in_wl': in_wl, 'close': int(today['C']),
+                         'chg': round(chg0, 2), 'hvp': round(hvp0, 2)})
+    results.sort(key=lambda x: (-int(x['in_wl']), -x['hvp']))
+    return results
+
+
 def scan_sector_rotation(all_ohlcv, target, chg_threshold=8.0, min_movers=2):
     """Deteksi sektor yang lagi 'panas' — 2+ saham di sektor sama naik >=threshold%
     (default 8%) hari ini. Return dict {sektor: {'movers':[...], 'watchlist':[...]}}.
@@ -2122,14 +2153,14 @@ def main():
         # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
         # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
         # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
-        _SCAN_CACHE_VERSION = 4
+        _SCAN_CACHE_VERSION = 5
         _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
         _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
                      and '_scan_pipeline_cache' in st.session_state)
         if _cache_ok:
             _required_keys = {'boa_full','boa_near','p1_list','p3_list','ol_list','sv_list',
                                'alert_list','clean','sp_list','bos_list','boh_list','div_list',
-                               'ttx_list','ara_list','bersih2_list','sektor_rotation','auto_sp'}
+                               'ttx_list','ara_list','bersih2_list','sektor_rotation','spike_today_list','auto_sp'}
             if not _required_keys.issubset(st.session_state['_scan_pipeline_cache'].keys()):
                 _cache_ok = False
         if not _cache_ok:
@@ -2150,6 +2181,7 @@ def main():
             _sp_cache['ara_list']  = scan_ara(all_ohlcv, avg_vols, target)
             _sp_cache['bersih2_list'] = scan_bersih2(all_ohlcv, avg_vols, target)
             _sp_cache['sektor_rotation'] = scan_sector_rotation(all_ohlcv, target)
+            _sp_cache['spike_today_list'] = scan_spike_today(all_ohlcv, target)
             _sp_cache['auto_sp']   = auto_stockpick(_sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['p1_list'],
                                     _sp_cache['p3_list'], _sp_cache['ol_list'], _sp_cache['sv_list'], _sp_cache['alert_list'],
                                     _sp_cache['sp_list'], _sp_cache['bos_list'], _sp_cache['boh_list'], _sp_cache['ttx_list'],
@@ -2166,6 +2198,8 @@ def main():
         ttx_list   = _sp_cache['ttx_list'];   auto_sp  = _sp_cache['auto_sp']
         ara_list   = _sp_cache['ara_list'];   bersih2_list = _sp_cache['bersih2_list']
         sektor_rotation = _sp_cache['sektor_rotation']
+        spike_today_list = _sp_cache['spike_today_list']
+
 
         # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
         # Trading Log ke-2: otomatis, tanpa perlu klik Simpan manual di kalkulator.
@@ -2586,7 +2620,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi"]
+    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi","⚡ Spike Today"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -4033,6 +4067,41 @@ def main():
                 st.info("Belum ada data watchlist rotasi sektor. Setup dulu tab Sheet-nya (jalankan setupSektorRotasiSheet() di Apps Script).")
         else:
             st.caption(f"⚠️ Gagal ambil data watchlist: {_sekwatch_data.get('message', 'unknown error')}")
+
+    # Tab Spike Today — High/Prev >=5% hari ini, TAPI 7 hari sebelumnya belum
+    # pernah spike >=5% sekalipun (spike yang genuinely baru)
+    with tabs[19]:
+        lst_spike = [r for r in spike_today_list if r['in_wl']] if show_only_wl else spike_today_list
+        st.markdown(f"**⚡ Spike Today — High/Prev ≥5%, 7H Sebelumnya Belum Pernah Spike | WL: {len([r for r in spike_today_list if r['in_wl']])} | Total: {len(spike_today_list)}**")
+        st.caption("Kriteria: High/Prev Close hari ini ≥5%, DAN 7 hari bursa sebelumnya (tidak termasuk hari ini) tidak ada satupun hari dengan High/Prev ≥5%.")
+        if lst_spike:
+            spike_rows_html = []
+            for r in lst_spike:
+                sc = '+' if r['chg'] > 0 else ''
+                spike_rows_html.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                    '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
+                    '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:#4ade80;font-weight:600">+' + str(r['hvp']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:#888;font-size:12px">' + sc + str(r['chg']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + build_price_sparkline(r['code'], all_ohlcv) + '</td>'
+                    '</tr>'
+                )
+            spike_tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                '<th style="padding:7px 10px;color:#666;font-weight:400;font-size:11px;width:24px">★</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">High/Prev%</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close/Prev%</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Trend 14H</th>'
+                '</tr></thead><tbody>' + ''.join(spike_rows_html) + '</tbody></table>'
+            )
+            st.html(spike_tbl_html)
+        else:
+            st.info("Tidak ada saham dengan pola ini hari ini.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
