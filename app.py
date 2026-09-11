@@ -2620,7 +2620,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi","⚡ Spike Today"]
+    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -2646,7 +2646,7 @@ def main():
             st.info("Tidak ada hasil.")
 
     # Tab BOA
-    with tabs[6]:
+    with tabs[7]:
         boa_wl  = [r for r in boa_full if r['in_wl']]
         near_wl = [r for r in boa_near if r['in_wl']]
         ca, cb  = st.columns(2)
@@ -2686,7 +2686,7 @@ def main():
             else: st.info("Tidak ada Hampir BOA.")
 
     # Tab P1
-    with tabs[7]:
+    with tabs[8]:
         lst = [r for r in p1_list if r['in_wl']] if show_only_wl else p1_list
         st.markdown(f"**P1 RCDrop1 | WL: {len([r for r in p1_list if r['in_wl']])} | Total: {len(p1_list)}**")
         if lst:
@@ -2706,7 +2706,7 @@ def main():
         else: st.info("Tidak ada P1 saat ini.")
 
     # Tab P3
-    with tabs[8]:
+    with tabs[9]:
         lst = [r for r in p3_list if r['in_wl']] if show_only_wl else p3_list
         st.markdown(f"**P3 Momentum | WL: {len([r for r in p3_list if r['in_wl']])} | Total: {len(p3_list)}**")
         if lst:
@@ -2725,7 +2725,7 @@ def main():
         else: st.info("Tidak ada P3 saat ini.")
 
     # Tab OLseq
-    with tabs[9]:
+    with tabs[10]:
         lst = [r for r in ol_list if r['in_wl'] and r['vol']>0] if show_only_wl else [r for r in ol_list if r['vol']>0]
         st.markdown(f"**OL Berturut | WL: {len([r for r in ol_list if r['in_wl']])} | Total: {len(ol_list)}**")
         if lst:
@@ -2820,7 +2820,7 @@ def main():
         else: st.info("Tidak ada SV saat ini.")
 
     # Tab Alert
-    with tabs[10]:
+    with tabs[11]:
         lst = [r for r in alert_list if r['in_wl']] if show_only_wl else alert_list
         st.markdown(f"**Alert Reversal | WL: {len([r for r in alert_list if r['in_wl']])} | Total: {len(alert_list)}**")
         if lst:
@@ -3018,7 +3018,7 @@ def main():
 
 
     # Tab BOS
-    with tabs[11]:
+    with tabs[12]:
         lst = [r for r in bos_list if r['in_wl']] if show_only_wl else bos_list
         entry_lst = [r for r in lst if r['entry'] != 'Tunggu']
         wait_lst  = [r for r in lst if r['entry'] == 'Tunggu']
@@ -3051,7 +3051,7 @@ def main():
                 use_container_width=True, height=250)
 
     # Tab BOH
-    with tabs[12]:
+    with tabs[13]:
         lst = [r for r in boh_list if r['in_wl']] if show_only_wl else boh_list
         entry_lst = [r for r in lst if r['vol_kering']]
         watch_lst = [r for r in lst if not r['vol_kering']]
@@ -3082,7 +3082,7 @@ def main():
             st.info("Tidak ada BOH dalam pantauan.")
 
     # Tab Divergen
-    with tabs[13]:
+    with tabs[14]:
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
         lst = sorted(lst, key=lambda r: r['chg'])
         st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
@@ -3137,7 +3137,7 @@ def main():
             st.info("Tidak ada saham dengan pola Divergen hari ini.")
 
     # Tab TTx
-    with tabs[14]:
+    with tabs[15]:
         remind_lst   = [r for r in ttx_list if r['priority'] == 0]
         confirm_lst  = [r for r in ttx_list if r['priority'] == 1]
         upcoming_lst = [r for r in ttx_list if r['priority'] == 2]
@@ -3351,7 +3351,7 @@ def main():
         else:
             st.info("Belum ada sinyal Auto StockPick hari ini.")
     # Tab Track Record
-    with tabs[15]:
+    with tabs[16]:
         st.markdown(f"**📋 Track Record | Entry → Max High T+1~T+5 | Semua Histori**")
         st.caption("Entry = muncul di pola tsb hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
 
@@ -3737,7 +3737,7 @@ def main():
             st.caption(st.session_state["sp_log_last_result"])
 
     # Tab Cari Saham — kebalikan dari tab lain: cari 1 kode, lihat pola apa saja yang lolos
-    with tabs[16]:
+    with tabs[17]:
         st.markdown("### 🔍 Cari Saham")
         st.caption("Ketik kode saham — lihat semua pola yang lolos untuk saham itu hari ini.")
         search_code = st.text_input("Kode saham:", value="", placeholder="Contoh: CENT", key="search_stock_code").strip().upper()
@@ -3834,7 +3834,7 @@ def main():
 
     # Tab ARA — pantau saham yang pernah naik besar (16-30%), alert kalau harga
     # retrace ke area sepertiga bawah dari kenaikan itu.
-    with tabs[17]:
+    with tabs[18]:
         lst = [r for r in ara_list if r['in_wl']] if show_only_wl else ara_list
         st.markdown(f"**🔺 ARA Watch — Naik 16-30%, Alert kalau Retrace ke 1/3 Bawah | WL: {len([r for r in ara_list if r['in_wl']])} | Total: {len(ara_list)}**")
         st.caption("1/3 bawah dihitung dari Prev Close (sebelum naik) sampai High tertinggi yang pernah dicapai setelahnya. Look-back 25 hari terakhir.")
@@ -3928,7 +3928,7 @@ def main():
 
     # Tab Sektor Rotasi — deteksi 2+ saham di sektor sama naik ≥8% hari ini,
     # lalu pantau saham LAIN di sektor sama yang belum naik (kandidat susulan).
-    with tabs[18]:
+    with tabs[19]:
         st.markdown("### 🏭 Rotasi Sektor")
         st.caption("Deteksi: 2+ saham di sektor sama naik ≥8% hari ini → saham lain di sektor itu yang belum naik masuk watchlist, dipantau otomatis sampai 10 hari bursa.")
 
@@ -4070,7 +4070,7 @@ def main():
 
     # Tab Spike Today — High/Prev >=5% hari ini, TAPI 7 hari sebelumnya belum
     # pernah spike >=5% sekalipun (spike yang genuinely baru)
-    with tabs[19]:
+    with tabs[6]:
         lst_spike = [r for r in spike_today_list if r['in_wl']] if show_only_wl else spike_today_list
         st.markdown(f"**⚡ Spike Today — High/Prev ≥5%, 7H Sebelumnya Belum Pernah Spike | WL: {len([r for r in spike_today_list if r['in_wl']])} | Total: {len(spike_today_list)}**")
         st.caption("Kriteria: High/Prev Close hari ini ≥5%, DAN 7 hari bursa sebelumnya (tidak termasuk hari ini) tidak ada satupun hari dengan High/Prev ≥5%.")
