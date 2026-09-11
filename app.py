@@ -4189,6 +4189,10 @@ def main():
                 '</tr></thead><tbody>' + ''.join(ma20_rows_html) + '</tbody></table>'
             )
             st.html(ma20_tbl_html)
+
+            st.divider()
+            codes_ma20 = [r['code'] for r in lst_ma20]
+            render_fast_chart(codes_ma20, all_ohlcv, n_days=30, key='ma20chart')
         else:
             st.info("Tidak ada saham dengan pola ini hari ini.")
 
