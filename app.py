@@ -1126,7 +1126,9 @@ def scan_above_ma20_spike(all_ohlcv, target, lookback_days=15, spike_threshold=8
     """Saham yang SAAT INI di atas MA20, dan dalam 15 hari terakhir pernah ada
     hari Close naik >=8%. Badge 'Entry' kalau volume hari ini udah kering
     banget — <=7% dari volume di hari spike >=8% tsb (perbandingan pakai
-    hari spike dengan volume terbesar kalau ada beberapa)."""
+    hari spike dengan volume terbesar kalau ada beberapa). Badge 'VvUP':
+    kenaikan hari ini 2-7% DAN volume hari ini <=75% dari volume di hari
+    spike itu (pakai perbandingan yang sama dengan badge Entry)."""
     results = []
     for code, bars in all_ohlcv.items():
         if not bars or bars[-1]['date'] != target: continue
@@ -1156,11 +1158,16 @@ def scan_above_ma20_spike(all_ohlcv, target, lookback_days=15, spike_threshold=8
         is_entry = vol_ratio_pct <= vol_dry_ratio
 
         chg0 = (today['C'] - today['P']) / today['P'] * 100 if today.get('P') and today['P'] > 0 else 0
+
+        # Badge VvUP: kenaikan 2-7% + volume hari ini <=75% dari volume saat spike
+        # (pakai "Vol vs Spike" yang sudah dihitung di atas, sama kayak badge Entry)
+        is_vvup = (2 <= chg0 <= 7) and (vol_ratio_pct <= 75)
+
         results.append({
             'code': code, 'in_wl': in_wl, 'close': int(today['C']), 'chg': round(chg0, 2),
             'ma20': round(ma20), 'spike_date': best_spike['date'][5:],
             'spike_chg': round((best_spike['C'] - best_spike['P']) / best_spike['P'] * 100, 1),
-            'vol_ratio_pct': round(vol_ratio_pct, 1), 'is_entry': is_entry,
+            'vol_ratio_pct': round(vol_ratio_pct, 1), 'is_entry': is_entry, 'is_vvup': is_vvup,
         })
     results.sort(key=lambda x: (-int(x['is_entry']), -int(x['in_wl']), x['vol_ratio_pct']))
     return results
@@ -2243,7 +2250,7 @@ def main():
         # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
         # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
         # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
-        _SCAN_CACHE_VERSION = 7
+        _SCAN_CACHE_VERSION = 8
         _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
         _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
                      and '_scan_pipeline_cache' in st.session_state)
@@ -4210,19 +4217,20 @@ def main():
             ma20_rows_html = []
             for r in lst_ma20:
                 sc = '+' if r['chg'] > 0 else ''
-                cc = '#4ade80' if r['chg'] > 0 else ('#f87171' if r['chg'] < 0 else '#888')
+                cc = '#4ade80' if r['chg'] > 0 else ('#f87171' if r['chg'] < 0 else '#EF9F27')
                 entry_badge = '<span style="background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap">🚨 Entry</span>' if r['is_entry'] else ''
                 h_badge = '<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;margin-left:3px">🅗 H</span>' if r['code'] in h_pattern_map else ''
+                vvup_badge = '<span style="background:#DBEAFE;color:#1E3A8A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;margin-left:3px">📊 VvUP</span>' if r.get('is_vvup') else ''
                 ma20_rows_html.append(
                     '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
                     '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
                     '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
                     '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(r['chg']) + '%</td>'
-                    '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#888">' + str(r['ma20']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px;color:#7DD3FC">' + str(r['ma20']) + '</td>'
                     '<td style="padding:7px 10px;font-size:11px;color:#888">' + r['spike_date'] + ' (+' + str(r['spike_chg']) + '%)</td>'
                     '<td style="padding:7px 10px;text-align:right;font-size:12px">' + str(r['vol_ratio_pct']) + '%</td>'
-                    '<td style="padding:7px 10px;text-align:center;white-space:nowrap">' + entry_badge + h_badge + '</td>'
+                    '<td style="padding:7px 10px;text-align:center;white-space:nowrap">' + entry_badge + h_badge + vvup_badge + '</td>'
                     '</tr>'
                 )
             ma20_tbl_html = (
