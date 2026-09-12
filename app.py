@@ -1593,12 +1593,15 @@ def auto_stockpick(boa_full, boa_near, p1_list, p3_list, ol_list, sv_list, alert
 # ══════════════════════════════════════════════════════════════════════════════
 # CANDLESTICK CHART
 # ══════════════════════════════════════════════════════════════════════════════
-def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart'):
+def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart', labels=None):
     """Chart candlestick+volume yang CEPAT — semua data OHLCV untuk 'codes' di-embed
     langsung sebagai JS (sama seperti kalkulator Miracle Cuan), jadi ganti pilihan
     saham di dropdown-nya nggak perlu Streamlit rerun sama sekali (instan, murni
     client-side). Dipakai buat gantiin render_candlestick() (Plotly) di tab yang
-    seringkali ganti-ganti saham buat lihat chart (AutoSP, TrackRecord, dst)."""
+    seringkali ganti-ganti saham buat lihat chart (AutoSP, TrackRecord, dst).
+    labels: dict opsional {code: 'teks tambahan'} — ditampilin sbg teks biasa di
+    sebelah kode di dropdown (mis. 'DKHH (Entry H)'). HTML <select> native gak
+    bisa nampilin badge berwarna di dalam <option>, jadi ini teks polos aja."""
     parts = []
     for code in codes:
         bars = (all_ohlcv.get(code) or [])[-n_days:]
@@ -1615,7 +1618,10 @@ def render_fast_chart(codes, all_ohlcv, n_days=30, height=380, key='fastchart'):
     parts.sort(key=lambda p: p.split('~')[0])
     ohlcv_payload = ';'.join(parts)
     codes_with_data = [p.split('~')[0] for p in parts]
-    options_html = ''.join([f'<option value="{c}">{c}</option>' for c in codes_with_data])
+    def _opt_label(c):
+        extra = (labels or {}).get(c)
+        return f"{c} ({extra})" if extra else c
+    options_html = ''.join([f'<option value="{c}">{_opt_label(c)}</option>' for c in codes_with_data])
 
     html = f"""
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;max-width:520px;margin:0 auto;box-sizing:border-box">
@@ -4282,7 +4288,15 @@ def main():
 
             st.divider()
             codes_ma20 = [r['code'] for r in lst_ma20]
-            render_fast_chart(codes_ma20, all_ohlcv, n_days=30, key='ma20chart')
+            chart_labels_ma20 = {}
+            for r in lst_ma20:
+                tags = []
+                if r.get('is_entry'): tags.append('Entry')
+                if r['code'] in h_pattern_map: tags.append('H')
+                if r.get('is_vvup'): tags.append('VvUp')
+                if tags:
+                    chart_labels_ma20[r['code']] = ' '.join(tags)
+            render_fast_chart(codes_ma20, all_ohlcv, n_days=30, key='ma20chart', labels=chart_labels_ma20)
         else:
             st.info("Tidak ada saham dengan pola ini hari ini.")
 
