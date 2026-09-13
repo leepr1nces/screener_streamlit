@@ -1204,6 +1204,45 @@ def scan_spike_today(all_ohlcv, target, spike_threshold=5.0, lookback_days=7):
     return results
 
 
+_PREDICT_WIN_RATES = {'ARA': 67.6, 'BOH': 50.0, 'TTx': 45.8, 'Alert': 43.5, 'BOS': 42.1}
+
+
+def build_predict_list(ara_list, boh_list, ttx_list, alert_list, bos_list):
+    """Gabungkan 5 pola dengan win rate tertinggi (dari analisis backtest historis:
+    ARA 67.6%, BOH 50.0%, TTx 45.8%, Alert Reversal 43.5%, BOS 42.1% — semua diukur
+    'capai gain >=5% dalam <=2 hari bursa') jadi 1 list saham berpotensi.
+    Saham yang match LEBIH DARI 1 pola diprioritaskan di atas."""
+    combined = {}
+
+    def _add(r, source, is_match):
+        if not is_match: return
+        code = r['code']
+        entry = combined.setdefault(code, {
+            'code': code, 'in_wl': r.get('in_wl', False), 'close': r.get('close', 0),
+            'chg': r.get('chg', 0), 'sources': [],
+        })
+        if source not in entry['sources']:
+            entry['sources'].append(source)
+
+    for r in ara_list:
+        _add(r, 'ARA', r.get('is_new_alert'))
+    for r in boh_list:
+        _add(r, 'BOH', r.get('vol_kering'))
+    for r in ttx_list:
+        _add(r, 'TTx', r.get('priority') == 0)
+    for r in alert_list:
+        _add(r, 'Alert', True)  # semua entry di alert_list sudah lolos kriteria
+    for r in bos_list:
+        _add(r, 'BOS', r.get('entry', '') != 'Tunggu')
+
+    results = list(combined.values())
+    for r in results:
+        r['best_winrate'] = max(_PREDICT_WIN_RATES[s] for s in r['sources'])
+        r['n_sources'] = len(r['sources'])
+    results.sort(key=lambda x: (-x['n_sources'], -x['best_winrate'], -int(x['in_wl'])))
+    return results
+
+
 def scan_sector_rotation(all_ohlcv, target, chg_threshold=8.0, min_movers=2):
     """Deteksi sektor yang lagi 'panas' — 2+ saham di sektor sama naik >=threshold%
     (default 8%) hari ini. Return dict {sektor: {'movers':[...], 'watchlist':[...]}}.
@@ -2256,7 +2295,7 @@ def main():
         # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
         # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
         # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
-        _SCAN_CACHE_VERSION = 8
+        _SCAN_CACHE_VERSION = 9
         _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
         _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
                      and '_scan_pipeline_cache' in st.session_state)
@@ -2264,7 +2303,7 @@ def main():
             _required_keys = {'boa_full','boa_near','p1_list','p3_list','ol_list','sv_list',
                                'alert_list','clean','sp_list','bos_list','boh_list','div_list',
                                'ttx_list','ara_list','bersih2_list','sektor_rotation','spike_today_list',
-                               'ma20_spike_list','h_pattern_list','auto_sp'}
+                               'ma20_spike_list','h_pattern_list','predict_list','auto_sp'}
             if not _required_keys.issubset(st.session_state['_scan_pipeline_cache'].keys()):
                 _cache_ok = False
         if not _cache_ok:
@@ -2288,6 +2327,8 @@ def main():
             _sp_cache['spike_today_list'] = scan_spike_today(all_ohlcv, target)
             _sp_cache['ma20_spike_list'] = scan_above_ma20_spike(all_ohlcv, target)
             _sp_cache['h_pattern_list'] = scan_h_pattern(all_ohlcv, target)
+            _sp_cache['predict_list'] = build_predict_list(_sp_cache['ara_list'], _sp_cache['boh_list'],
+                                    _sp_cache['ttx_list'], _sp_cache['alert_list'], _sp_cache['bos_list'])
             _sp_cache['auto_sp']   = auto_stockpick(_sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['p1_list'],
                                     _sp_cache['p3_list'], _sp_cache['ol_list'], _sp_cache['sv_list'], _sp_cache['alert_list'],
                                     _sp_cache['sp_list'], _sp_cache['bos_list'], _sp_cache['boh_list'], _sp_cache['ttx_list'],
@@ -2307,6 +2348,7 @@ def main():
         spike_today_list = _sp_cache['spike_today_list']
         ma20_spike_list = _sp_cache['ma20_spike_list']
         h_pattern_list = _sp_cache['h_pattern_list']
+        predict_list = _sp_cache['predict_list']
 
 
         # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
@@ -2728,7 +2770,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","📈 Above MA20","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi"]
+    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🔮 Predict","📈 Above MA20","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -2754,7 +2796,7 @@ def main():
             st.info("Tidak ada hasil.")
 
     # Tab BOA
-    with tabs[8]:
+    with tabs[9]:
         boa_wl  = [r for r in boa_full if r['in_wl']]
         near_wl = [r for r in boa_near if r['in_wl']]
         ca, cb  = st.columns(2)
@@ -2794,7 +2836,7 @@ def main():
             else: st.info("Tidak ada Hampir BOA.")
 
     # Tab P1
-    with tabs[9]:
+    with tabs[10]:
         lst = [r for r in p1_list if r['in_wl']] if show_only_wl else p1_list
         st.markdown(f"**P1 RCDrop1 | WL: {len([r for r in p1_list if r['in_wl']])} | Total: {len(p1_list)}**")
         if lst:
@@ -2814,7 +2856,7 @@ def main():
         else: st.info("Tidak ada P1 saat ini.")
 
     # Tab P3
-    with tabs[10]:
+    with tabs[11]:
         lst = [r for r in p3_list if r['in_wl']] if show_only_wl else p3_list
         st.markdown(f"**P3 Momentum | WL: {len([r for r in p3_list if r['in_wl']])} | Total: {len(p3_list)}**")
         if lst:
@@ -2833,7 +2875,7 @@ def main():
         else: st.info("Tidak ada P3 saat ini.")
 
     # Tab OLseq
-    with tabs[11]:
+    with tabs[12]:
         lst = [r for r in ol_list if r['in_wl'] and r['vol']>0] if show_only_wl else [r for r in ol_list if r['vol']>0]
         st.markdown(f"**OL Berturut | WL: {len([r for r in ol_list if r['in_wl']])} | Total: {len(ol_list)}**")
         if lst:
@@ -2928,7 +2970,7 @@ def main():
         else: st.info("Tidak ada SV saat ini.")
 
     # Tab Alert
-    with tabs[12]:
+    with tabs[13]:
         lst = [r for r in alert_list if r['in_wl']] if show_only_wl else alert_list
         st.markdown(f"**Alert Reversal | WL: {len([r for r in alert_list if r['in_wl']])} | Total: {len(alert_list)}**")
         if lst:
@@ -3126,7 +3168,7 @@ def main():
 
 
     # Tab BOS
-    with tabs[13]:
+    with tabs[14]:
         lst = [r for r in bos_list if r['in_wl']] if show_only_wl else bos_list
         entry_lst = [r for r in lst if r['entry'] != 'Tunggu']
         wait_lst  = [r for r in lst if r['entry'] == 'Tunggu']
@@ -3159,7 +3201,7 @@ def main():
                 use_container_width=True, height=250)
 
     # Tab BOH
-    with tabs[14]:
+    with tabs[15]:
         lst = [r for r in boh_list if r['in_wl']] if show_only_wl else boh_list
         entry_lst = [r for r in lst if r['vol_kering']]
         watch_lst = [r for r in lst if not r['vol_kering']]
@@ -3190,7 +3232,7 @@ def main():
             st.info("Tidak ada BOH dalam pantauan.")
 
     # Tab Divergen
-    with tabs[15]:
+    with tabs[16]:
         lst = [r for r in div_list if r['in_wl']] if show_only_wl else div_list
         lst = sorted(lst, key=lambda r: r['chg'])
         st.markdown(f"**Divergen — Harga Basing/Naik + Volume Mengering (8-20H, fleksibel) | WL: {len([r for r in div_list if r['in_wl']])} | Total: {len(div_list)}**")
@@ -3245,7 +3287,7 @@ def main():
             st.info("Tidak ada saham dengan pola Divergen hari ini.")
 
     # Tab TTx
-    with tabs[16]:
+    with tabs[17]:
         remind_lst   = [r for r in ttx_list if r['priority'] == 0]
         confirm_lst  = [r for r in ttx_list if r['priority'] == 1]
         upcoming_lst = [r for r in ttx_list if r['priority'] == 2]
@@ -3459,7 +3501,7 @@ def main():
         else:
             st.info("Belum ada sinyal Auto StockPick hari ini.")
     # Tab Track Record
-    with tabs[17]:
+    with tabs[18]:
         st.markdown(f"**📋 Track Record | Entry → Max High T+1~T+5 | Semua Histori**")
         st.caption("Entry = muncul di pola tsb hari T | Gain% = (Max High T+1~5 - Close Entry) / Close Entry")
 
@@ -3845,7 +3887,7 @@ def main():
             st.caption(st.session_state["sp_log_last_result"])
 
     # Tab Cari Saham — kebalikan dari tab lain: cari 1 kode, lihat pola apa saja yang lolos
-    with tabs[18]:
+    with tabs[19]:
         st.markdown("### 🔍 Cari Saham")
         st.caption("Ketik kode saham — lihat semua pola yang lolos untuk saham itu hari ini.")
         search_code = st.text_input("Kode saham:", value="", placeholder="Contoh: CENT", key="search_stock_code").strip().upper()
@@ -3942,7 +3984,7 @@ def main():
 
     # Tab ARA — pantau saham yang pernah naik besar (16-30%), alert kalau harga
     # retrace ke area sepertiga bawah dari kenaikan itu.
-    with tabs[19]:
+    with tabs[20]:
         lst = [r for r in ara_list if r['in_wl']] if show_only_wl else ara_list
         st.markdown(f"**🔺 ARA Watch — Naik 16-30%, Alert kalau Retrace ke 1/3 Bawah | WL: {len([r for r in ara_list if r['in_wl']])} | Total: {len(ara_list)}**")
         st.caption("1/3 bawah dihitung dari Prev Close (sebelum naik) sampai High tertinggi yang pernah dicapai setelahnya. Look-back 25 hari terakhir.")
@@ -4036,7 +4078,7 @@ def main():
 
     # Tab Sektor Rotasi — deteksi 2+ saham di sektor sama naik ≥8% hari ini,
     # lalu pantau saham LAIN di sektor sama yang belum naik (kandidat susulan).
-    with tabs[20]:
+    with tabs[21]:
         st.markdown("### 🏭 Rotasi Sektor")
         st.caption("Deteksi: 2+ saham di sektor sama naik ≥8% hari ini → saham lain di sektor itu yang belum naik masuk watchlist, dipantau otomatis sampai 10 hari bursa.")
 
@@ -4178,7 +4220,7 @@ def main():
 
     # Tab Spike Today — High/Prev >=5% hari ini, TAPI 7 hari sebelumnya belum
     # pernah spike >=5% sekalipun (spike yang genuinely baru)
-    with tabs[7]:
+    with tabs[8]:
         lst_spike = [r for r in spike_today_list if r['in_wl']] if show_only_wl else spike_today_list
         st.markdown(f"**⚡ Spike Today — High/Prev ≥5%, 7H Sebelumnya Belum Pernah Spike | WL: {len([r for r in spike_today_list if r['in_wl']])} | Total: {len(spike_today_list)}**")
         st.caption("Kriteria: High/Prev Close hari ini ≥5%, DAN 7 hari bursa sebelumnya (tidak termasuk hari ini) tidak ada satupun hari dengan High/Prev ≥5%.")
@@ -4213,7 +4255,7 @@ def main():
 
     # Tab Above MA20 — saat ini di atas MA20, pernah spike Close>=8% dlm 15H,
     # badge Entry kalau volume hari ini sudah kering (<=7% vol saat spike)
-    with tabs[6]:
+    with tabs[7]:
         lst_ma20 = [r for r in ma20_spike_list if r['in_wl']] if show_only_wl else ma20_spike_list
         n_entry = len([r for r in ma20_spike_list if r['in_wl'] and r['is_entry']])
         st.markdown(f"**📈 Above MA20 + Pernah Spike ≥8% (15H) | WL: {len([r for r in ma20_spike_list if r['in_wl']])} | 🚨 Entry: {n_entry}**")
@@ -4299,6 +4341,58 @@ def main():
             render_fast_chart(codes_ma20, all_ohlcv, n_days=30, key='ma20chart', labels=chart_labels_ma20)
         else:
             st.info("Tidak ada saham dengan pola ini hari ini.")
+
+    # Tab Predict — gabungan 5 pola dengan win rate tertinggi (dari backtest
+    # historis: ARA 67.6%, BOH 50.0%, TTx 45.8%, Alert 43.5%, BOS 42.1% —
+    # semua diukur "capai gain >=5% dalam <=2 hari bursa")
+    with tabs[6]:
+        lst_predict = [r for r in predict_list if r['in_wl']] if show_only_wl else predict_list
+        st.markdown(f"**🔮 Predict — Berpotensi Gain ≥5% dalam <3 Hari | WL: {len([r for r in predict_list if r['in_wl']])}**")
+        st.caption("Gabungan 5 pola dengan win rate historis tertinggi (backtest data lokal, sampel terbatas): ARA 67.6%, BOH 50.0%, TTx 45.8%, Alert Reversal 43.5%, BOS 42.1% — diukur 'capai gain ≥5% dalam ≤2 hari bursa'. Saham yang match lebih dari 1 pola diprioritaskan di atas.")
+        st.warning("⚠️ Berdasarkan backtest data historis terbatas (27 hari) — bukan jaminan, cuma indikasi probabilitas berdasarkan pola masa lalu.")
+        if lst_predict:
+            _src_color = {
+                'ARA': ('#FEE2E2', '#991B1B'), 'BOH': ('#DCFCE7', '#166534'),
+                'TTx': ('#FEF3C7', '#92400E'), 'Alert': ('#F1F5F9', '#334155'),
+                'BOS': ('#E1F5EE', '#085041'),
+            }
+            predict_rows_html = []
+            for r in lst_predict:
+                sc = '+' if r['chg'] > 0 else ''
+                cc = '#4ade80' if r['chg'] > 0 else ('#f87171' if r['chg'] < 0 else '#EF9F27')
+                src_badges = ''.join([
+                    f'<span style="background:{_src_color.get(s,("#E6F1FB","#0C447C"))[0]};color:{_src_color.get(s,("#E6F1FB","#0C447C"))[1]};font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;margin-right:3px;white-space:nowrap">{s}</span>'
+                    for s in r['sources']
+                ])
+                predict_rows_html.append(
+                    '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                    '<td style="padding:7px 10px;font-size:12px;color:#fbbf24">' + ('★' if r['in_wl'] else '') + '</td>'
+                    '<td style="padding:7px 10px;font-weight:600;font-size:13px">' + r['code'] + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:13px">' + str(r['close']) + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;color:' + cc + ';font-weight:500">' + sc + str(r['chg']) + '%</td>'
+                    '<td style="padding:7px 10px;text-align:center">' + src_badges + '</td>'
+                    '<td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:600">' + str(r['best_winrate']) + '%</td>'
+                    '</tr>'
+                )
+            predict_tbl_html = (
+                '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                '<th style="padding:7px 10px;color:#666;font-weight:400;font-size:11px;width:24px">★</th>'
+                '<th style="padding:7px 10px;text-align:left;color:#666;font-weight:400;font-size:11px">Code</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Close</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Chg%</th>'
+                '<th style="padding:7px 10px;text-align:center;color:#666;font-weight:400;font-size:11px">Sumber Pola</th>'
+                '<th style="padding:7px 10px;text-align:right;color:#666;font-weight:400;font-size:11px">Win Rate</th>'
+                '</tr></thead><tbody>' + ''.join(predict_rows_html) + '</tbody></table>'
+            )
+            st.html(predict_tbl_html)
+
+            st.divider()
+            codes_predict = [r['code'] for r in lst_predict]
+            chart_labels_predict = {r['code']: '+'.join(r['sources']) for r in lst_predict}
+            render_fast_chart(codes_predict, all_ohlcv, n_days=30, key='predictchart', labels=chart_labels_predict)
+        else:
+            st.info("Tidak ada saham yang match salah satu dari 5 pola ini hari ini.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
