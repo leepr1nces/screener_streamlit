@@ -1243,6 +1243,34 @@ def build_predict_list(ara_list, boh_list, ttx_list, alert_list, bos_list):
     return results
 
 
+def build_calendar_data(all_ohlcv, all_dates, mode='spike', spike_threshold=8.0, top_n=10):
+    """Buat data per-tanggal (watchlist only) buat tab Calendar — heatmap kalender.
+    mode='spike': saham dgn High/Prev >=spike_threshold%. mode='gainer': top_n
+    saham dgn Chg% tertinggi hari itu (nggak perlu >=8%, murni top gainer)."""
+    calendar_data = {}
+    for date_t in all_dates:
+        day_entries = []
+        for code, bars in all_ohlcv.items():
+            if code not in ALL_WL: continue
+            bar = next((b for b in bars if b['date'] == date_t), None)
+            if not bar or not bar.get('P') or bar['P'] <= 0: continue
+            chg = (bar['C'] - bar['P']) / bar['P'] * 100 if bar.get('C') else 0
+            hvp = (bar['H'] - bar['P']) / bar['P'] * 100 if bar.get('H') else 0
+            if mode == 'spike':
+                if hvp >= spike_threshold:
+                    day_entries.append({'code': code, 'chg': round(chg, 2), 'hvp': round(hvp, 2)})
+            else:  # gainer
+                day_entries.append({'code': code, 'chg': round(chg, 2), 'hvp': round(hvp, 2)})
+        if mode == 'gainer':
+            day_entries.sort(key=lambda x: -x['chg'])
+            day_entries = day_entries[:top_n]
+        else:
+            day_entries.sort(key=lambda x: -x['hvp'])
+        if day_entries:
+            calendar_data[date_t] = day_entries
+    return calendar_data
+
+
 def scan_sector_rotation(all_ohlcv, target, chg_threshold=8.0, min_movers=2):
     """Deteksi sektor yang lagi 'panas' — 2+ saham di sektor sama naik >=threshold%
     (default 8%) hari ini. Return dict {sektor: {'movers':[...], 'watchlist':[...]}}.
@@ -2770,7 +2798,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🔮 Predict","📈 Above MA20","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi"]
+    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🔮 Predict","📈 Above MA20","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi","📅 Calendar"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -4393,6 +4421,106 @@ def main():
             render_fast_chart(codes_predict, all_ohlcv, n_days=30, key='predictchart', labels=chart_labels_predict)
         else:
             st.info("Tidak ada saham yang match salah satu dari 5 pola ini hari ini.")
+
+    # Tab Calendar — heatmap kalender spike/gainer per hari (grid asli, bukan list)
+    with tabs[22]:
+        st.markdown("### 📅 Calendar — Heatmap Spike per Hari")
+        cal_mode = st.radio("Kriteria:", ["Spike ≥8%", "Top Gainer"], horizontal=True, key='cal_mode')
+        cal_mode_key = 'spike' if cal_mode == "Spike ≥8%" else 'gainer'
+
+        _cal_sig = (len(all_dates), max(all_dates) if all_dates else None, len(all_ohlcv), cal_mode_key)
+        if st.session_state.get('_cal_sig') != _cal_sig:
+            with st.spinner("Menghitung data kalender..."):
+                st.session_state['_cal_data'] = build_calendar_data(all_ohlcv, all_dates, mode=cal_mode_key)
+                st.session_state['_cal_sig'] = _cal_sig
+        calendar_data = st.session_state['_cal_data']
+        all_dates_set = set(all_dates)
+
+        if not calendar_data:
+            st.info("Tidak ada data untuk ditampilkan.")
+        else:
+            import calendar as _cal_module
+            _months_data = {}
+            for date_str, entries in calendar_data.items():
+                dt = datetime.strptime(date_str, '%Y-%m-%d')
+                _months_data.setdefault((dt.year, dt.month), {})[dt.day] = entries
+            # Tambahkan bulan yg ada trading day tapi 0 entry spike (biar kalendernya lengkap)
+            for date_str in all_dates:
+                dt = datetime.strptime(date_str, '%Y-%m-%d')
+                _months_data.setdefault((dt.year, dt.month), {})
+
+            all_counts = [len(v) for v in calendar_data.values()]
+            max_count = max(all_counts) if all_counts else 1
+
+            def _heat_color(n):
+                if n == 0: return ('#1a1a2e', '#555')
+                ratio = n / max_count
+                if ratio < 0.25: return ('#422006', '#fbbf24')
+                elif ratio < 0.5: return ('#7c2d12', '#fb923c')
+                elif ratio < 0.75: return ('#991b1b', '#f87171')
+                else: return ('#7f1d1d', '#fca5a5')
+
+            for (year, month) in sorted(_months_data.keys(), reverse=True):
+                st.markdown(f"**{_BULAN_ID[month]} {year}**")
+                first_weekday, n_days = _cal_module.monthrange(year, month)  # Senin=0
+                day_names = ['Sen','Sel','Rab','Kam','Jum','Sab','Min']
+                header_html = ''.join(f'<div style="text-align:center;font-size:11px;color:#888;padding:4px">{d}</div>' for d in day_names)
+                cells_html = ''
+                for _ in range(first_weekday):
+                    cells_html += '<div></div>'
+                for day in range(1, n_days + 1):
+                    date_str = f"{year}-{month:02d}-{day:02d}"
+                    entries = _months_data[(year, month)].get(day)
+                    is_trading = date_str in all_dates_set
+                    n = len(entries) if entries else 0
+                    if not is_trading:
+                        cells_html += (
+                            '<div style="background:transparent;border-radius:6px;padding:6px 4px;min-height:56px;'
+                            'border:1px solid rgba(255,255,255,0.02)">'
+                            f'<div style="font-size:11px;color:#333">{day}</div></div>'
+                        )
+                        continue
+                    bg, fg = _heat_color(n)
+                    top_codes = ', '.join(e['code'] for e in entries[:2]) if entries else ''
+                    cells_html += (
+                        f'<div style="background:{bg};border-radius:6px;padding:6px 4px;min-height:56px;'
+                        f'border:1px solid rgba(255,255,255,0.08)">'
+                        f'<div style="font-size:11px;color:#aaa">{day}</div>'
+                        + (f'<div style="font-size:16px;font-weight:700;color:{fg}">{n}</div>' if n > 0 else '<div style="font-size:16px;font-weight:700;color:#444">0</div>')
+                        + (f'<div style="font-size:9px;color:{fg};opacity:0.8">{top_codes}</div>' if top_codes else '')
+                        + '</div>'
+                    )
+                st.html(
+                    f'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">{header_html}</div>'
+                    f'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:20px">{cells_html}</div>'
+                )
+
+            st.divider()
+            st.markdown("**📋 Detail per Tanggal**")
+            available_dates = sorted(calendar_data.keys(), reverse=True)
+            sel_date = st.selectbox("Pilih tanggal:", available_dates, key='cal_date_select')
+            if sel_date:
+                entries = calendar_data[sel_date]
+                st.caption(f"{len(entries)} saham pada {sel_date}")
+                detail_rows = []
+                for e in entries:
+                    cc = '#4ade80' if e['chg'] > 0 else ('#f87171' if e['chg'] < 0 else '#EF9F27')
+                    detail_rows.append(
+                        '<tr style="border-bottom:0.5px solid rgba(128,128,128,0.12)">'
+                        f'<td style="padding:6px 10px;font-weight:600">{e["code"]}</td>'
+                        f'<td style="padding:6px 10px;text-align:right;color:{cc}">{e["chg"]:+.2f}%</td>'
+                        f'<td style="padding:6px 10px;text-align:right;color:#4ade80">{e["hvp"]:+.2f}%</td>'
+                        '</tr>'
+                    )
+                detail_html = (
+                    '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                    '<thead><tr style="border-bottom:1px solid rgba(128,128,128,0.25)">'
+                    '<th style="padding:6px 10px;text-align:left;color:#666;font-size:11px">Code</th>'
+                    '<th style="padding:6px 10px;text-align:right;color:#666;font-size:11px">Chg%</th>'
+                    '<th style="padding:6px 10px;text-align:right;color:#666;font-size:11px">High/Prev%</th>'
+                    '</tr></thead><tbody>' + ''.join(detail_rows) + '</tbody></table>'
+                )
+                st.html(detail_html)
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
