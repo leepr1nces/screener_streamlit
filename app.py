@@ -4754,8 +4754,22 @@ def main():
         st.markdown(f"**⏭️ Next Perform — Drop ≤ -7% lalu Hitung Hari sampai Close ≥ +13% | WL: {len(lst_np)} | ⚠️ WATCH: {len(warn_np)} | ✅ Sudah Hit: {n_hit_np}**")
         st.caption("Trigger: Close turun ≤ -7% dari Prev Close. Kolom 'Hari' = jumlah hari bursa sejak trigger (hari trigger = hari ke-0) sampai ada hari Close naik ≥ +13% dalam 1 hari, atau sampai hari ini kalau belum hit. Setiap ada trigger baru, hitungan di-reset ke trigger terbaru itu. Hanya saham WL (yang kamu kenal).")
         if warn_np:
-            st.warning(f"⚠️ Mulai perhatikan ({len(warn_np)} saham, sudah hari ke-12/13+ dan belum ada Close ≥ +13%): " + ", ".join(f"{r['code']} (Hari {r['days']}, trigger {r['trigger_date'][5:]})" for r in warn_np))
+            st.markdown(f"**⚠️ WATCH — Mulai Perhatikan | {len(warn_np)} saham (Hari ≥ 12, belum ada Close ≥ +13%)**")
+            watch_rows = [{'★': '★', 'Code': r['code'], 'Close': r['close'], 'Chg%': r['chg'],
+                           'Trigger': r['trigger_date'], 'Drop%': r['drop'],
+                           'Close Trig': r['trigger_close'], 'Hari': r['days']} for r in warn_np]
+            df_watch = pd.DataFrame(watch_rows)
+            st.dataframe(df_watch.style
+                .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v, float) and v > 0
+                          else ('color:#f87171;font-weight:bold' if isinstance(v, float) and v < 0 else ''),
+                          subset=['Chg%', 'Drop%'])
+                .map(lambda v: 'color:#f59e0b;font-weight:bold' if isinstance(v, (int, float)) and v >= 12 else '',
+                          subset=['Hari'])
+                .format({'Chg%': '{:+.2f}', 'Drop%': '{:+.2f}'}),
+                use_container_width=True, height=320)
+            st.divider()
         if lst_np:
+            st.markdown("**📋 Semua Next Perform**")
             np_rows = [{'★': '★', 'Code': r['code'], 'Close': r['close'], 'Chg%': r['chg'],
                         'Trigger': r['trigger_date'], 'Drop%': r['drop'], 'Close Trig': r['trigger_close'],
                         'Hari': r['days'],
@@ -4772,9 +4786,10 @@ def main():
                 use_container_width=True, height=520)
             if warn_np:
                 st.divider()
-                codes_np = [r['code'] for r in warn_np]
+                _chart_np = [r for r in warn_np if r['days'] in (12, 13)] or warn_np[:10]
+                codes_np = [r['code'] for r in _chart_np]
                 render_fast_chart(codes_np, all_ohlcv, n_days=60, key='nextperform_chart',
-                                  labels={r['code']: f"Hari {r['days']}" for r in warn_np})
+                                  labels={r['code']: f"Hari {r['days']}" for r in _chart_np})
         else:
             st.info("Tidak ada saham WL dengan trigger drop ≤ -7%.")
 
