@@ -1581,6 +1581,19 @@ def scan_ttx(all_ohlcv, avg_vols, target, hvp_thresh=8.0, gap_min=3, gap_max=15,
     return results
 
 
+_NEXT_PERFORM_BLUE_DAYS = {13, 17, 18, 19, 22, 27, 28, 29}
+
+
+def _np_hari_style(v):
+    """Warna kolom 'Hari' di Next Perform: hari-hari khusus (13, 17, 18, 19,
+    22, 27, 28, 29) biru muda, hari >= 12 lainnya oranye, sisanya biasa."""
+    if isinstance(v, (int, float)) and int(v) in _NEXT_PERFORM_BLUE_DAYS:
+        return 'color:#7dd3fc;font-weight:bold'
+    if isinstance(v, (int, float)) and v >= 12:
+        return 'color:#f59e0b;font-weight:bold'
+    return ''
+
+
 def scan_next_perform(all_ohlcv, target, drop_pct=-7.0, hit_pct=13.0, warn_day=12):
     """Next Perform — WL saja.
     Trigger: satu hari Close turun <= drop_pct% (default -7%, dihitung dari
@@ -4752,7 +4765,7 @@ def main():
         warn_np = [r for r in lst_np if r['warn']]
         n_hit_np = len([r for r in lst_np if r['hit_date']])
         st.markdown(f"**⏭️ Next Perform — Drop ≤ -7% lalu Hitung Hari sampai Close ≥ +13% | WL: {len(lst_np)} | ⚠️ WATCH: {len(warn_np)} | ✅ Sudah Hit: {n_hit_np}**")
-        st.caption("Trigger: Close turun ≤ -7% dari Prev Close. Kolom 'Hari' = jumlah hari bursa sejak trigger (hari trigger = hari ke-0) sampai ada hari Close naik ≥ +13% dalam 1 hari, atau sampai hari ini kalau belum hit. Setiap ada trigger baru, hitungan di-reset ke trigger terbaru itu. Hanya saham WL (yang kamu kenal).")
+        st.caption("Trigger: Close turun ≤ -7% dari Prev Close. Kolom 'Hari' = jumlah hari bursa sejak trigger (hari trigger = hari ke-0) sampai ada hari Close naik ≥ +13% dalam 1 hari, atau sampai hari ini kalau belum hit. Setiap ada trigger baru, hitungan di-reset ke trigger terbaru itu. Hari 13, 17, 18, 19, 22, 27, 28, 29 berwarna biru muda. Hanya saham WL (yang kamu kenal).")
         if warn_np:
             st.markdown(f"**⚠️ WATCH — Mulai Perhatikan | {len(warn_np)} saham (Hari ≥ 12, belum ada Close ≥ +13%)**")
             watch_rows = [{'★': '★', 'Code': r['code'], 'Close': r['close'], 'Chg%': r['chg'],
@@ -4763,8 +4776,7 @@ def main():
                 .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v, float) and v > 0
                           else ('color:#f87171;font-weight:bold' if isinstance(v, float) and v < 0 else ''),
                           subset=['Chg%', 'Drop%'])
-                .map(lambda v: 'color:#f59e0b;font-weight:bold' if isinstance(v, (int, float)) and v >= 12 else '',
-                          subset=['Hari'])
+                .map(_np_hari_style, subset=['Hari'])
                 .format({'Chg%': '{:+.2f}', 'Drop%': '{:+.2f}'}),
                 use_container_width=True, height=320)
             st.divider()
@@ -4780,8 +4792,7 @@ def main():
                 .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v, float) and v > 0
                           else ('color:#f87171;font-weight:bold' if isinstance(v, float) and v < 0 else ''),
                           subset=['Chg%', 'Drop%', 'Hit%'])
-                .map(lambda v: 'color:#f59e0b;font-weight:bold' if isinstance(v, (int, float)) and v >= 12 else '',
-                          subset=['Hari'])
+                .map(_np_hari_style, subset=['Hari'])
                 .format({'Chg%': '{:+.2f}', 'Drop%': '{:+.2f}', 'Hit%': '{:+.2f}'}),
                 use_container_width=True, height=520)
             if warn_np:
