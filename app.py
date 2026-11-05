@@ -1581,6 +1581,114 @@ def scan_ttx(all_ohlcv, avg_vols, target, hvp_thresh=8.0, gap_min=3, gap_max=15,
     return results
 
 
+def scan_next_perform(all_ohlcv, target, drop_pct=-7.0, hit_pct=13.0, warn_day=12):
+    """Next Perform — WL saja.
+    Trigger: satu hari Close turun <= drop_pct% (default -7%, dihitung dari
+    Prev Close: (Close-Prev)/Prev*100).
+    Setelah trigger, hitung hari bursa satu per satu (kolom 'Hari') selama
+    BELUM ada satu hari Close naik >= hit_pct% (default +13%, juga dihitung
+    dari Prev Close hari itu). Hari trigger sendiri = hari ke-0, tidak dihitung.
+    - Kalau sudah ada hari Close >= +13%: status 'Sudah Hit', 'Hari' = jumlah
+      hari bursa dari trigger sampai hari hit itu.
+    - Kalau belum: 'Hari' = jumlah hari bursa dari trigger sampai tanggal
+      target (data terakhir). Warning kalau 'Hari' >= warn_day (default 12):
+      hari ke-12/13 adalah saatnya mulai perhatikan saham itu.
+    - Drop lanjutan SELAMA masih menunggu hit ME-RESET hitungan ke drop
+      terbaru (setiap ada trigger baru, hitungan hari mulai lagi dari 0).
+      Setelah hit, state reset, drop berikutnya boleh mulai siklus baru.
+      Baris yang ditampilkan adalah siklus TERAKHIR tiap saham.
+    Contoh: BAJA trigger 16 Okt 2026 (-14,78%), hit 05 Nov 2026 (+34,72%),
+    Hari = 14. BBRM trigger 16 Okt 2026 (-14,71%), belum hit sampai
+    05 Nov 2026, Hari = 14 (⚠️ WATCH)."""
+    results = []
+    for code, bars_full in all_ohlcv.items():
+        if code not in ALL_WL:
+            continue
+        target_idx = next((i for i, b in enumerate(bars_full) if b['date'] == target), None)
+        if target_idx is None:
+            continue
+        bars = bars_full[:target_idx + 1]
+        if len(bars) < 2:
+            continue
+
+        def _chg(i):
+            b = bars[i]
+            prev = b.get('P')
+            if not prev or prev <= 0:
+                prev = bars[i - 1]['C'] if i > 0 else None
+            if not prev or prev <= 0 or not b.get('C'):
+                return None
+            return (b['C'] - prev) / prev * 100
+
+        # Lacak siklus terakhir: trigger -> hit, lalu reset. Setiap ada
+        # trigger baru selama masih menunggu hit, hitungan di-reset ke
+        # trigger terbaru itu.
+        last_cycle = None
+        cur = None
+        for i, b in enumerate(bars):
+            chg = _chg(i)
+            if chg is None:
+                continue
+            if cur is None:
+                if chg <= drop_pct:
+                    cur = {'trigger_date': b['date'], 'trigger_close': b['C'],
+                           'drop': round(chg, 2), 'idx': i,
+                           'hit_date': None, 'hit_close': None, 'hit_chg': None}
+            elif chg <= drop_pct:
+                cur = {'trigger_date': b['date'], 'trigger_close': b['C'],
+                       'drop': round(chg, 2), 'idx': i,
+                       'hit_date': None, 'hit_close': None, 'hit_chg': None}
+            elif chg >= hit_pct:
+                cur['hit_date'] = b['date']
+                cur['hit_close'] = b['C']
+                cur['hit_chg'] = round(chg, 2)
+                cur['days'] = i - cur['idx']
+                last_cycle = cur
+                cur = None
+        if cur is not None:
+            cur['days'] = target_idx - cur['idx']
+            last_cycle = cur
+        if last_cycle is None:
+            continue
+        today = bars[-1]
+        chg0 = _chg(target_idx)
+        days = last_cycle['days']
+        is_hit = last_cycle['hit_date'] is not None
+        warn = (not is_hit) and days >= warn_day
+        if is_hit:
+            status = '✅ Sudah Hit'
+        elif days in (warn_day, warn_day + 1):
+            status = f'⚠️ WATCH — Hari {days}'
+        elif days > warn_day + 1:
+            status = f'⚠️ WATCH — Lewat Hari {warn_day + 1}'
+        else:
+            status = '⏳ Berjalan'
+        results.append({
+            'code': code, 'in_wl': True, 'close': int(today['C']),
+            'chg': round(chg0, 2) if chg0 is not None else 0,
+            'trigger_date': last_cycle['trigger_date'],
+            'trigger_close': int(last_cycle['trigger_close']),
+            'drop': last_cycle['drop'],
+            'hit_date': last_cycle['hit_date'],
+            'hit_close': int(last_cycle['hit_close']) if last_cycle['hit_close'] else None,
+            'hit_chg': last_cycle['hit_chg'],
+            'days': days, 'status': status, 'warn': warn,
+        })
+    # Urutkan: yang persis hari ke-12/13 dulu (saatnya diperhatikan), lalu
+    # yang sudah lewat hari ke-13 (paling dekat ke 12/13 dulu), lalu yang
+    # masih berjalan (hari terbanyak dulu), terakhir yang sudah hit (hit
+    # terbaru dulu).
+    _exact = [r for r in results if not r['hit_date'] and r['days'] in (12, 13)]
+    _over = sorted([r for r in results if r['warn'] and r['days'] not in (12, 13)],
+                   key=lambda x: x['days'])
+    _run = sorted([r for r in results if not r['hit_date'] and not r['warn']],
+                  key=lambda x: -x['days'])
+    _hit = sorted([r for r in results if r['hit_date']],
+                  key=lambda x: x['hit_date'], reverse=True)
+    results = _exact + _over + _run + _hit
+    return results
+
+
 def get_data_folder_signature(folder="data"):
     """Fingerprint isi folder data/ (nama file + ukuran) — dipakai sebagai cache key,
     supaya cache otomatis invalid begitu ada file baru/berubah. Sengaja TIDAK pakai
@@ -2385,7 +2493,7 @@ def main():
         # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
         # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
         # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
-        _SCAN_CACHE_VERSION = 10
+        _SCAN_CACHE_VERSION = 12
         _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
         _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
                      and '_scan_pipeline_cache' in st.session_state)
@@ -2393,7 +2501,8 @@ def main():
             _required_keys = {'boa_full','boa_near','p1_list','p3_list','ol_list','sv_list',
                                'alert_list','clean','sp_list','bos_list','boh_list','div_list',
                                'ttx_list','ara_list','bersih2_list','sektor_rotation','spike_today_list',
-                               'ma20_spike_list','h_pattern_list','predict_list','by_day_list','auto_sp'}
+                               'ma20_spike_list','h_pattern_list','predict_list','by_day_list','auto_sp',
+                               'next_perform_list'}
             if not _required_keys.issubset(st.session_state['_scan_pipeline_cache'].keys()):
                 _cache_ok = False
         if not _cache_ok:
@@ -2418,6 +2527,7 @@ def main():
             _sp_cache['ma20_spike_list'] = scan_above_ma20_spike(all_ohlcv, target)
             _sp_cache['h_pattern_list'] = scan_h_pattern(all_ohlcv, target)
             _sp_cache['by_day_list'] = scan_by_day(all_ohlcv, target)
+            _sp_cache['next_perform_list'] = scan_next_perform(all_ohlcv, target)
             _sp_cache['predict_list'] = build_predict_list(_sp_cache['ara_list'], _sp_cache['boh_list'],
                                     _sp_cache['ttx_list'], _sp_cache['alert_list'], _sp_cache['bos_list'])
             _sp_cache['auto_sp']   = auto_stockpick(_sp_cache['boa_full'], _sp_cache['boa_near'], _sp_cache['p1_list'],
@@ -2441,6 +2551,7 @@ def main():
         h_pattern_list = _sp_cache['h_pattern_list']
         by_day_list = _sp_cache['by_day_list']
         predict_list = _sp_cache['predict_list']
+        next_perform_list = _sp_cache['next_perform_list']
 
 
         # ── Auto-log semua saham StockPick ke Google Sheet "StockPick Log" ──
@@ -2862,7 +2973,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🔮 Predict","📅 By Day","📈 Above MA20","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi","📅 Calendar"]
+    tab_labels = ["🧹 Scan Bersih","🆕 New30","🌟 Miracle Cuan","🛒 Stockpick","⭐ AutoSP","💰 SV","🔮 Predict","📅 By Day","📈 Above MA20","⚡ Spike Today","🎯 BOA","📉 P1","🔄 P3","🕯️ OLseq","🚨 Alert","🚀 BOS","📈 BOH","🔀 Divergen","⏰ TTx","📋 TrackRecord","🔍 Cari Saham","🔺 ARA","🏭 Sektor Rotasi","📅 Calendar","⏭️ Next Perform"]
     tabs = st.tabs(tab_labels)
 
     # Tab Scan Bersih
@@ -4633,6 +4744,39 @@ def main():
             render_fast_chart(codes_byday, all_ohlcv, n_days=60, key='byday_chart', labels=chart_labels_byday)
         else:
             st.info("Tidak ada saham dengan pola siklus berulang yang terdeteksi.")
+
+    # Tab Next Perform — trigger drop Close <= -7%, lalu hitung hari bursa
+    # sampai ada satu hari Close >= +13%. WL saja. Warning hari ke-12/13.
+    with tabs[24]:
+        lst_np = [r for r in next_perform_list if r['in_wl']] if show_only_wl else next_perform_list
+        warn_np = [r for r in lst_np if r['warn']]
+        n_hit_np = len([r for r in lst_np if r['hit_date']])
+        st.markdown(f"**⏭️ Next Perform — Drop ≤ -7% lalu Hitung Hari sampai Close ≥ +13% | WL: {len(lst_np)} | ⚠️ WATCH: {len(warn_np)} | ✅ Sudah Hit: {n_hit_np}**")
+        st.caption("Trigger: Close turun ≤ -7% dari Prev Close. Kolom 'Hari' = jumlah hari bursa sejak trigger (hari trigger = hari ke-0) sampai ada hari Close naik ≥ +13% dalam 1 hari, atau sampai hari ini kalau belum hit. Setiap ada trigger baru, hitungan di-reset ke trigger terbaru itu. Hanya saham WL (yang kamu kenal).")
+        if warn_np:
+            st.warning(f"⚠️ Mulai perhatikan ({len(warn_np)} saham, sudah hari ke-12/13+ dan belum ada Close ≥ +13%): " + ", ".join(f"{r['code']} (Hari {r['days']}, trigger {r['trigger_date'][5:]})" for r in warn_np))
+        if lst_np:
+            np_rows = [{'★': '★', 'Code': r['code'], 'Close': r['close'], 'Chg%': r['chg'],
+                        'Trigger': r['trigger_date'], 'Drop%': r['drop'], 'Close Trig': r['trigger_close'],
+                        'Hari': r['days'],
+                        'Tgl Hit': r['hit_date'] or '-', 'Hit%': r['hit_chg'] if r['hit_chg'] is not None else None,
+                        'Status': r['status']} for r in lst_np]
+            df_np = pd.DataFrame(np_rows)
+            st.dataframe(df_np.style
+                .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v, float) and v > 0
+                          else ('color:#f87171;font-weight:bold' if isinstance(v, float) and v < 0 else ''),
+                          subset=['Chg%', 'Drop%', 'Hit%'])
+                .map(lambda v: 'color:#f59e0b;font-weight:bold' if isinstance(v, (int, float)) and v >= 12 else '',
+                          subset=['Hari'])
+                .format({'Chg%': '{:+.2f}', 'Drop%': '{:+.2f}', 'Hit%': '{:+.2f}'}),
+                use_container_width=True, height=520)
+            if warn_np:
+                st.divider()
+                codes_np = [r['code'] for r in warn_np]
+                render_fast_chart(codes_np, all_ohlcv, n_days=60, key='nextperform_chart',
+                                  labels={r['code']: f"Hari {r['days']}" for r in warn_np})
+        else:
+            st.info("Tidak ada saham WL dengan trigger drop ≤ -7%.")
 
     st.divider()
     st.caption(f"IDX Screener v2.0 | Hadi Lie | {now.strftime('%d %b %Y %H:%M')}")
