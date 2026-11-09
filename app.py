@@ -1594,6 +1594,26 @@ def _np_hari_style(v):
     return ''
 
 
+def _np_candle_signal(bars, n=5):
+    """Sinyal Candle Next Perform: di n candle terakhir, ada OL
+    (Open == Low) atau Doji (Close == Open). Cukup salah satu saja."""
+    has_ol = False
+    has_doji = False
+    for b in bars[-n:]:
+        o, l, c = b.get('O'), b.get('L'), b.get('C')
+        if o is not None and l is not None and o == l:
+            has_ol = True
+        if o is not None and c is not None and c == o:
+            has_doji = True
+    if has_ol and has_doji:
+        return '🕯️ OL+Doji'
+    if has_ol:
+        return '🕯️ OL'
+    if has_doji:
+        return '🕯️ Doji'
+    return '-'
+
+
 def scan_next_perform(all_ohlcv, target, drop_pct=-7.0, hit_pct=13.0, warn_day=12):
     """Next Perform — WL saja.
     Trigger: satu hari Close turun <= drop_pct% (default -7%, dihitung dari
@@ -1686,6 +1706,7 @@ def scan_next_perform(all_ohlcv, target, drop_pct=-7.0, hit_pct=13.0, warn_day=1
             'hit_close': int(last_cycle['hit_close']) if last_cycle['hit_close'] else None,
             'hit_chg': last_cycle['hit_chg'],
             'days': days, 'status': status, 'warn': warn,
+            'candle': _np_candle_signal(bars),
         })
     # Urutkan: yang persis hari ke-12/13 dulu (saatnya diperhatikan), lalu
     # yang sudah lewat hari ke-13 (paling dekat ke 12/13 dulu), lalu yang
@@ -2506,7 +2527,7 @@ def main():
         # key baru dsb) — biar app yang baru di-redeploy tapi datanya SAMA (jadi
         # signature sama) tidak kepakai cache LAMA yang strukturnya beda (bisa bikin
         # KeyError). Kalau nambah field baru ke _sp_cache lagi nanti, naikkan angka ini.
-        _SCAN_CACHE_VERSION = 12
+        _SCAN_CACHE_VERSION = 13
         _scan_sig = (_SCAN_CACHE_VERSION, len(all_dates), target, len(all_ohlcv))
         _cache_ok = (st.session_state.get('_scan_pipeline_sig') == _scan_sig
                      and '_scan_pipeline_cache' in st.session_state)
@@ -4765,12 +4786,13 @@ def main():
         warn_np = [r for r in lst_np if r['warn']]
         n_hit_np = len([r for r in lst_np if r['hit_date']])
         st.markdown(f"**⏭️ Next Perform — Drop ≤ -7% lalu Hitung Hari sampai Close ≥ +13% | WL: {len(lst_np)} | ⚠️ WATCH: {len(warn_np)} | ✅ Sudah Hit: {n_hit_np}**")
-        st.caption("Trigger: Close turun ≤ -7% dari Prev Close. Kolom 'Hari' = jumlah hari bursa sejak trigger (hari trigger = hari ke-0) sampai ada hari Close naik ≥ +13% dalam 1 hari, atau sampai hari ini kalau belum hit. Setiap ada trigger baru, hitungan di-reset ke trigger terbaru itu. Hari 13, 17, 18, 19, 22, 27, 28, 29 berwarna biru muda. Hanya saham WL (yang kamu kenal).")
+        st.caption("Trigger: Close turun ≤ -7% dari Prev Close. Kolom 'Hari' = jumlah hari bursa sejak trigger (hari trigger = hari ke-0) sampai ada hari Close naik ≥ +13% dalam 1 hari, atau sampai hari ini kalau belum hit. Setiap ada trigger baru, hitungan di-reset ke trigger terbaru itu. Hari 13, 17, 18, 19, 22, 27, 28, 29 berwarna biru muda. Kolom 'Candle': 🕯️ OL = ada candle Open==Low di 5 candle terakhir, 🕯️ Doji = ada candle Close==Open di 5 candle terakhir (cukup salah satu). Hanya saham WL (yang kamu kenal).")
         if warn_np:
             st.markdown(f"**⚠️ WATCH — Mulai Perhatikan | {len(warn_np)} saham (Hari ≥ 12, belum ada Close ≥ +13%)**")
             watch_rows = [{'★': '★', 'Code': r['code'], 'Close': r['close'], 'Chg%': r['chg'],
                            'Trigger': r['trigger_date'], 'Drop%': r['drop'],
-                           'Close Trig': r['trigger_close'], 'Hari': r['days']} for r in warn_np]
+                           'Close Trig': r['trigger_close'], 'Hari': r['days'],
+                           'Candle': r['candle']} for r in warn_np]
             df_watch = pd.DataFrame(watch_rows)
             st.dataframe(df_watch.style
                 .map(lambda v: 'color:#4ade80;font-weight:bold' if isinstance(v, float) and v > 0
@@ -4784,7 +4806,7 @@ def main():
             st.markdown("**📋 Semua Next Perform**")
             np_rows = [{'★': '★', 'Code': r['code'], 'Close': r['close'], 'Chg%': r['chg'],
                         'Trigger': r['trigger_date'], 'Drop%': r['drop'], 'Close Trig': r['trigger_close'],
-                        'Hari': r['days'],
+                        'Hari': r['days'], 'Candle': r['candle'],
                         'Tgl Hit': r['hit_date'] or '-', 'Hit%': r['hit_chg'] if r['hit_chg'] is not None else None,
                         'Status': r['status']} for r in lst_np]
             df_np = pd.DataFrame(np_rows)
