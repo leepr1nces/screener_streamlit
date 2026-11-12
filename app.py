@@ -4334,7 +4334,14 @@ def main():
                         f'<span style="background:#F1F5F9;color:#334155;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;margin-right:4px;margin-bottom:4px;display:inline-block">{w["code"]} {w["chg"]:+.1f}%</span>'
                         for w in info['watchlist']
                     ])
-                    st.html(wl_html)
+                    # st.html('') crash (StreamlitMissingRequiredParameterError):
+                    # watchlist bisa kosong kalau SEMUA saham di sektor yang
+                    # lagi panas itu sudah naik >=8%, jadi tidak ada kandidat
+                    # susulan. Jangan panggil st.html dengan string kosong.
+                    if wl_html:
+                        st.html(wl_html)
+                    else:
+                        st.caption("Tidak ada kandidat susulan — semua saham di sektor ini sudah naik ≥8% hari ini.")
         else:
             st.info("Tidak ada sektor yang 'panas' (2+ saham naik ≥8%) hari ini.")
 
